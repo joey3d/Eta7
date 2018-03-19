@@ -367,7 +367,10 @@ namespace AmplifyShaderEditor
 			if ( m_selected )
 			{
 				GUI.color = Constants.NodeSelectedColor;
+				RectOffset cache = UIUtils.GetCustomStyle( CustomStyle.NodeWindowOn ).border;
+				UIUtils.GetCustomStyle( CustomStyle.NodeWindowOn ).border = UIUtils.RectOffsetSix;
 				GUI.Label( m_globalPosition, string.Empty, UIUtils.GetCustomStyle( CustomStyle.NodeWindowOn ) );
+				UIUtils.GetCustomStyle( CustomStyle.NodeWindowOn ).border = cache;
 				GUI.color = m_colorBuffer;
 			}
 

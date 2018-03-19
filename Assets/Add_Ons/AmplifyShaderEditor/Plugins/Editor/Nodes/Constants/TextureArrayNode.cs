@@ -133,7 +133,7 @@ namespace AmplifyShaderEditor
 			PreviewMaterial.SetFloat( m_cachedUnpackId, m_autoUnpackNormals ? 1 : 0 );
 			if( m_referenceType == TexReferenceType.Instance && m_referenceSampler != null )
 			{
-				if( ( ParentNode ) m_referenceSampler != m_referenceSampler.PreviewTextProp )
+				if( (ParentNode)m_referenceSampler != m_referenceSampler.PreviewTextProp )
 				{
 					PreviewMaterial.SetInt( m_texConnectedId, 1 );
 					PreviewMaterial.SetTexture( "_G", m_referenceSampler.PreviewTextProp.PreviewTexture );
@@ -170,7 +170,7 @@ namespace AmplifyShaderEditor
 		{
 			m_uvSet = EditorGUILayoutIntPopup( Constants.AvailableUVSetsLabel, m_uvSet, Constants.AvailableUVSetsStr, Constants.AvailableUVSets );
 
-			MipType newMipMode = ( MipType ) EditorGUILayoutPopup( "Mip Mode", ( int ) m_mipMode, m_mipOptions );
+			MipType newMipMode = (MipType)EditorGUILayoutPopup( "Mip Mode", (int)m_mipMode, m_mipOptions );
 			if( newMipMode != m_mipMode )
 			{
 				m_mipMode = newMipMode;
@@ -217,7 +217,7 @@ namespace AmplifyShaderEditor
 		public override void DrawMainPropertyBlock()
 		{
 			EditorGUI.BeginChangeCheck();
-			m_referenceType = ( TexReferenceType ) EditorGUILayoutPopup( Constants.ReferenceTypeStr, ( int ) m_referenceType, Constants.ReferenceArrayLabels );
+			m_referenceType = (TexReferenceType)EditorGUILayoutPopup( Constants.ReferenceTypeStr, (int)m_referenceType, Constants.ReferenceArrayLabels );
 			if( EditorGUI.EndChangeCheck() )
 			{
 				if( m_referenceType == TexReferenceType.Object )
@@ -679,19 +679,40 @@ namespace AmplifyShaderEditor
 
 			string result = string.Empty;
 
-			//CAREFUL mipbias here means derivative (this needs index changes)
-			if( m_mipMode == MipType.MipBias )
+			if( m_containerGraph.CurrentMasterNode.CurrentDataCollector.IsTemplate && m_containerGraph.CurrentMasterNode.CurrentDataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
 			{
-				dataCollector.UsingArrayDerivatives = true;
-				result = "ASE_SAMPLE_TEX2DARRAY_GRAD(" + propertyName + ", float3(" + uvs + ", " + index + "), " + m_ddxPort.GeneratePortInstructions( ref dataCollector ) + ", " + m_ddyPort.GeneratePortInstructions( ref dataCollector ) + " )";
-			}
-			else if( m_lodPort.Visible || isVertex )
-			{
-				result = "UNITY_SAMPLE_TEX2DARRAY_LOD(" + propertyName + ", float3(" + uvs + ", " + index + "), " + level + " )";
+				//CAREFUL mipbias here means derivative (this needs index changes)
+				//TODO: unity now supports bias as well
+				if( m_mipMode == MipType.MipBias )
+				{
+					dataCollector.UsingArrayDerivatives = true;
+					result = propertyName + ".SampleGrad(sampler" + propertyName + ", float3(" + uvs + ", " + index + "), " + m_ddxPort.GeneratePortInstructions( ref dataCollector ) + ", " + m_ddyPort.GeneratePortInstructions( ref dataCollector ) + ");";
+				}
+				else if( m_lodPort.Visible || isVertex )
+				{
+					result = "SAMPLE_TEXTURE2D_ARRAY_LOD(" + propertyName + ", sampler" + propertyName + ", " + uvs + ", " + index + ", " + level + " )";
+				}
+				else
+				{
+					result = "SAMPLE_TEXTURE2D_ARRAY(" + propertyName + ", sampler" + propertyName + ", " + uvs + ", " + index + " )";
+				}
 			}
 			else
 			{
-				result = "UNITY_SAMPLE_TEX2DARRAY" + ( m_lodPort.Visible || isVertex ? "_LOD" : "" ) + "(" + propertyName + ", float3(" + uvs + ", " + index + ") " + ( m_lodPort.Visible || isVertex ? ", " + level : "" ) + " )";
+				//CAREFUL mipbias here means derivative (this needs index changes)
+				if( m_mipMode == MipType.MipBias )
+				{
+					dataCollector.UsingArrayDerivatives = true;
+					result = "ASE_SAMPLE_TEX2DARRAY_GRAD(" + propertyName + ", float3(" + uvs + ", " + index + "), " + m_ddxPort.GeneratePortInstructions( ref dataCollector ) + ", " + m_ddyPort.GeneratePortInstructions( ref dataCollector ) + " )";
+				}
+				else if( m_lodPort.Visible || isVertex )
+				{
+					result = "UNITY_SAMPLE_TEX2DARRAY_LOD(" + propertyName + ", float3(" + uvs + ", " + index + "), " + level + " )";
+				}
+				else
+				{
+					result = "UNITY_SAMPLE_TEX2DARRAY" + ( m_lodPort.Visible || isVertex ? "_LOD" : "" ) + "(" + propertyName + ", float3(" + uvs + ", " + index + ") " + ( m_lodPort.Visible || isVertex ? ", " + level : "" ) + " )";
+				}
 			}
 
 			if( m_autoUnpackNormals )
@@ -730,6 +751,12 @@ namespace AmplifyShaderEditor
 
 		public override bool GetUniformData( out string dataType, out string dataName )
 		{
+			if( m_containerGraph.CurrentMasterNode.CurrentDataCollector.IsTemplate && m_containerGraph.CurrentMasterNode.CurrentDataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
+			{
+				dataType = "TEXTURE2D_ARRAY( " + PropertyName + "";
+				dataName = ");\nuniform SAMPLER( sampler" + PropertyName + " )";
+				return true;
+			}
 			dataType = "UNITY_DECLARE_TEX2DARRAY(";
 			dataName = PropertyName + " )";
 			return true;
@@ -741,10 +768,10 @@ namespace AmplifyShaderEditor
 			string textureName = GetCurrentParam( ref nodeParams );
 			m_defaultTextureArray = AssetDatabase.LoadAssetAtPath<Texture2DArray>( textureName );
 			m_uvSet = Convert.ToInt32( GetCurrentParam( ref nodeParams ) );
-			m_referenceType = ( TexReferenceType ) Enum.Parse( typeof( TexReferenceType ), GetCurrentParam( ref nodeParams ) );
+			m_referenceType = (TexReferenceType)Enum.Parse( typeof( TexReferenceType ), GetCurrentParam( ref nodeParams ) );
 			m_referenceNodeId = Convert.ToInt32( GetCurrentParam( ref nodeParams ) );
 			if( UIUtils.CurrentShaderVersion() > 3202 )
-				m_mipMode = ( MipType ) Enum.Parse( typeof( MipType ), GetCurrentParam( ref nodeParams ) );
+				m_mipMode = (MipType)Enum.Parse( typeof( MipType ), GetCurrentParam( ref nodeParams ) );
 			if( UIUtils.CurrentShaderVersion() > 5105 )
 				m_autoUnpackNormals = Convert.ToBoolean( GetCurrentParam( ref nodeParams ) );
 
@@ -823,7 +850,7 @@ namespace AmplifyShaderEditor
 			{
 				if( mat.HasProperty( PropertyName ) )
 				{
-					m_materialTextureArray = ( Texture2DArray ) mat.GetTexture( PropertyName );
+					m_materialTextureArray = (Texture2DArray)mat.GetTexture( PropertyName );
 					if( m_materialTextureArray == null )
 						m_materialTextureArray = m_defaultTextureArray;
 				}
@@ -834,7 +861,7 @@ namespace AmplifyShaderEditor
 		{
 			if( UIUtils.IsProperty( m_currentParameterType ) && material.HasProperty( PropertyName ) )
 			{
-				m_materialTextureArray = ( Texture2DArray ) material.GetTexture( PropertyName );
+				m_materialTextureArray = (Texture2DArray)material.GetTexture( PropertyName );
 				if( m_materialTextureArray == null )
 					m_materialTextureArray = m_defaultTextureArray;
 			}

@@ -84,11 +84,10 @@ namespace AmplifyShaderEditor
 
 
 		[SerializeField]
-		private int m_zTestMode = 0;
+		private InlineProperty m_zTestMode = new InlineProperty();
 
 		[SerializeField]
-		private int m_zWriteMode = 0;
-
+		private InlineProperty m_zWriteMode = new InlineProperty();
 		[SerializeField]
 		private float m_offsetFactor;
 
@@ -110,17 +109,18 @@ namespace AmplifyShaderEditor
 		public string CreateDepthInfo( bool outlineZWrite, bool outlineZTest )
 		{
 			string result = string.Empty;
-			if( m_zWriteMode != 0 )
+			if( m_zWriteMode.Value != 0 || m_zWriteMode.Active )
 			{
-				MasterNode.AddRenderState( ref result, "ZWrite", ZWriteModeValues[ m_zWriteMode ] );
-			} else if( outlineZWrite )
+				MasterNode.AddRenderState( ref result, "ZWrite", m_zWriteMode.GetValueOrProperty( ZWriteModeValues[ m_zWriteMode.Value ] ) );
+			}
+			else if( outlineZWrite )
 			{
 				MasterNode.AddRenderState( ref result, "ZWrite", ZWriteModeValues[ 1 ] );
 			}
 
-			if( m_zTestMode != 0 )
+			if( m_zTestMode.Value != 0 || m_zTestMode.Active )
 			{
-				MasterNode.AddRenderState( ref result, "ZTest", ZTestModeValues[ m_zTestMode ] );
+				MasterNode.AddRenderState( ref result, "ZTest", m_zTestMode.GetValueOrProperty( ZTestModeValues[ m_zTestMode.Value ] ) );
 			}
 			else if( outlineZTest )
 			{
@@ -163,8 +163,10 @@ namespace AmplifyShaderEditor
 				EditorGUILayout.Separator();
 				EditorGUI.BeginDisabledGroup( !customBlendAvailable );
 
-				m_zWriteMode = owner.EditorGUILayoutPopup( ZWriteModeStr, m_zWriteMode, ZWriteModeValues );
-				m_zTestMode = owner.EditorGUILayoutPopup( ZTestModeStr, m_zTestMode, ZTestModeLabels );
+				m_zWriteMode.EnumTypePopup( ref owner, ZWriteModeStr, ZWriteModeValues );
+				m_zTestMode.EnumTypePopup( ref owner, ZTestModeStr, ZTestModeLabels );
+				//m_zWriteMode = owner.EditorGUILayoutPopup( ZWriteModeStr, m_zWriteMode, ZWriteModeValues );
+				//m_zTestMode = owner.EditorGUILayoutPopup( ZTestModeStr, m_zTestMode, ZTestModeLabels );
 				m_offsetEnabled = owner.EditorGUILayoutToggle( OffsetStr, m_offsetEnabled );
 				if( m_offsetEnabled )
 				{
@@ -209,22 +211,30 @@ namespace AmplifyShaderEditor
 			if( UIUtils.CurrentShaderVersion() < 2502 )
 			{
 				string zWriteMode = nodeParams[ index++ ];
-				m_zWriteMode = zWriteMode.Equals( "Off" ) ? 2 : 0;
+				m_zWriteMode.Value = zWriteMode.Equals( "Off" ) ? 2 : 0;
 
 				string zTestMode = nodeParams[ index++ ];
 				for( int i = 0; i < ZTestModeValues.Length; i++ )
 				{
 					if( zTestMode.Equals( ZTestModeValues[ i ] ) )
 					{
-						m_zTestMode = i;
+						m_zTestMode.Value = i;
 						break;
 					}
 				}
 			}
 			else
 			{
-				m_zWriteMode = Convert.ToInt32( nodeParams[ index++ ] );
-				m_zTestMode = Convert.ToInt32( nodeParams[ index++ ] );
+				if( UIUtils.CurrentShaderVersion() > 14501 )
+				{
+					m_zWriteMode.ReadFromString( ref index, ref nodeParams );
+					m_zTestMode.ReadFromString( ref index, ref nodeParams );
+				}
+				else
+				{
+					m_zWriteMode.Value = Convert.ToInt32( nodeParams[ index++ ] );
+					m_zTestMode.Value = Convert.ToInt32( nodeParams[ index++ ] );
+				}
 				m_offsetEnabled = Convert.ToBoolean( nodeParams[ index++ ] );
 				m_offsetFactor = Convert.ToSingle( nodeParams[ index++ ] );
 				m_offsetUnits = Convert.ToSingle( nodeParams[ index++ ] );
@@ -239,15 +249,15 @@ namespace AmplifyShaderEditor
 
 		public void WriteToString( ref string nodeInfo )
 		{
-			IOUtils.AddFieldValueToString( ref nodeInfo, m_zWriteMode );
-			IOUtils.AddFieldValueToString( ref nodeInfo, m_zTestMode );
+			m_zWriteMode.WriteToString( ref nodeInfo );
+			m_zTestMode.WriteToString( ref nodeInfo );
 			IOUtils.AddFieldValueToString( ref nodeInfo, m_offsetEnabled );
 			IOUtils.AddFieldValueToString( ref nodeInfo, m_offsetFactor );
 			IOUtils.AddFieldValueToString( ref nodeInfo, m_offsetUnits );
 			IOUtils.AddFieldValueToString( ref nodeInfo, m_extraDepthPass );
 			IOUtils.AddFieldValueToString( ref nodeInfo, m_extrazTestMode );
 		}
-		public bool IsActive { get { return m_zTestMode != 0 || m_zWriteMode != 0 || m_offsetEnabled; } }
+		public bool IsActive { get { return m_zTestMode.Value != 0 || m_zWriteMode.Value != 0 || m_offsetEnabled || m_zTestMode.Active || m_zWriteMode.Active; } }
 		public StandardSurfaceOutputNode ParentSurface { get { return m_parentSurface; } set { m_parentSurface = value; } }
 	}
 }

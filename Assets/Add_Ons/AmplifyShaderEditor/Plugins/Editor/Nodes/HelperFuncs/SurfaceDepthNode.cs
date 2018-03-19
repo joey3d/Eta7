@@ -78,13 +78,15 @@ namespace AmplifyShaderEditor
 					string varName = "customSurfaceDepth" + OutputId;
 					GenerateInputInVertex( ref dataCollector, 0, varName, false );
 					string instruction = "-UnityObjectToViewPos( " + varName + " ).z" + space;
+					if( dataCollector.IsLightweight )
+						instruction = "-TransformWorldToView(TransformObjectToWorld( " + varName + " )).z" + space;
 					string eyeVarName = "customEye" + OutputId;
 					dataCollector.TemplateDataCollectorInstance.RegisterCustomInterpolatedData( eyeVarName, WirePortDataType.FLOAT, m_currentPrecisionType, instruction );
 					return eyeVarName;
 				}
 				else
 				{
-					return dataCollector.TemplateDataCollectorInstance.GetEyeDepth( m_currentPrecisionType, true, MasterNodePortCategory.Fragment,m_viewSpaceInt );
+					return dataCollector.TemplateDataCollectorInstance.GetEyeDepth( m_currentPrecisionType, true, MasterNodePortCategory.Fragment, m_viewSpaceInt );
 				}
 			}
 
@@ -151,7 +153,7 @@ namespace AmplifyShaderEditor
 					string varName = "customSurfaceDepth" + OutputId;
 					GenerateInputInVertex( ref dataCollector, 0, varName, false );
 					dataCollector.AddToInput( UniqueId, varName, WirePortDataType.FLOAT );
-					string instruction = "-UnityObjectToViewPos( " + varName +" ).z" + space;
+					string instruction = "-UnityObjectToViewPos( " + varName + " ).z" + space;
 					dataCollector.AddVertexInstruction( Constants.VertexShaderOutputStr + "." + varName + " = " + instruction, UniqueId );
 					return Constants.InputVarStr + "." + varName;
 				}

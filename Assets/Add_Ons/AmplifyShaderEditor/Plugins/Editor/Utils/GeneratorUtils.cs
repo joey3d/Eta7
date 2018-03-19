@@ -10,6 +10,7 @@ namespace AmplifyShaderEditor
 		public const string ViewPositionStr = "ase_viewPos";
 		public const string WorldViewDirectionStr = "ase_worldViewDir";
 		public const string TangentViewDirectionStr = "ase_tanViewDir";
+		public const string NormalizedViewDirStr = "ase_normViewDir";
 		public const string ClipPositionStr = "ase_clipPos";
 		public const string VertexPosition3Str = "ase_vertex3Pos";
 		public const string VertexPosition4Str = "ase_vertex4Pos";
@@ -152,7 +153,7 @@ namespace AmplifyShaderEditor
 			{
 				string worldNormal = GenerateWorldNormal( ref dataCollector, uniqueId );
 				string worldTangent = GenerateWorldTangent( ref dataCollector, uniqueId );
-				dataCollector.AddToVertexLocalVariables( uniqueId, string.Format( "fixed tangentSign = {0}.tangent.w * unity_WorldTransformParams.w;", Constants.VertexShaderInputStr ) );
+				dataCollector.AddToVertexLocalVariables( uniqueId, string.Format( "half tangentSign = {0}.tangent.w * unity_WorldTransformParams.w;", Constants.VertexShaderInputStr ) );
 				result = "cross( " + worldNormal + ", " + worldTangent + " ) * tangentSign";
 			}
 
@@ -449,7 +450,7 @@ namespace AmplifyShaderEditor
 			string value = Constants.VertexShaderInputStr + ".tangent.w";
 			if( dataCollector.IsFragmentCategory )
 			{
-				dataCollector.AddToInput( uniqueId, VertexTangentSignStr, WirePortDataType.FLOAT, PrecisionType.Fixed );
+				dataCollector.AddToInput( uniqueId, VertexTangentSignStr, WirePortDataType.FLOAT, PrecisionType.Half );
 				dataCollector.AddToVertexLocalVariables( uniqueId, Constants.VertexShaderOutputStr + "." + VertexTangentSignStr + " = " + Constants.VertexShaderInputStr + ".tangent.w;" );
 				return Constants.InputVarStr + "." + VertexTangentSignStr;
 			}

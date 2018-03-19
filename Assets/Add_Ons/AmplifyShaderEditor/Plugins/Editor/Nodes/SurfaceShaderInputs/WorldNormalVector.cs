@@ -63,7 +63,7 @@ namespace AmplifyShaderEditor
 						return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
 
 
-					string value = dataCollector.TemplateDataCollectorInstance.GetWorldNormal( m_currentPrecisionType, m_inputPorts[ 0 ].GeneratePortInstructions( ref dataCollector ) );
+					string value = dataCollector.TemplateDataCollectorInstance.GetWorldNormal( UniqueId, m_currentPrecisionType, m_inputPorts[ 0 ].GeneratePortInstructions( ref dataCollector ), OutputId );
 					if( m_normalize )
 					{
 						value = string.Format( NormalizeFunc, value );

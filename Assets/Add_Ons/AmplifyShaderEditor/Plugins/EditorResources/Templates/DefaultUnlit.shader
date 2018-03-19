@@ -9,7 +9,7 @@ Shader /*ase_name*/ "ASETemplateShaders/DefaultUnlit" /*end*/
 	
 	SubShader
 	{
-		Tags { "RenderType"="Opaque" "LightMode" = "ForwardBase" }
+		Tags { "RenderType"="Opaque" }
 		LOD 100
 		Cull Off
 		/*ase_pass*/

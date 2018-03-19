@@ -554,6 +554,25 @@ namespace AmplifyShaderEditor
 		}
 
 		// Properties
+		public void CopyPropertiesFromDataCollector( MasterNodeDataCollector dataCollector )
+		{
+			if( dataCollector == null )
+				return;
+
+			int propertyCount = dataCollector.PropertiesList.Count;
+			for( int i = 0; i < propertyCount; i++ )
+			{
+				AddToProperties( dataCollector.PropertiesList[ i ].NodeId,
+								dataCollector.PropertiesList[ i ].PropertyName,
+								dataCollector.PropertiesList[ i ].OrderIndex );
+			}
+
+			foreach( KeyValuePair<string, string> kvp in dataCollector.GrabPassDict )
+			{
+				AddGrabPass( kvp.Value );
+			}
+		}
+
 		public void AddToProperties( int nodeId, string value, int orderIndex )
 		{
 			if( string.IsNullOrEmpty( value ) )
@@ -626,7 +645,6 @@ namespace AmplifyShaderEditor
 
 		public void AddGrabPass( string value )
 		{
-
 			if( m_grabPassDict.ContainsKey( value ) )
 				return;
 
@@ -1482,6 +1500,9 @@ namespace AmplifyShaderEditor
 		}
 
 		public bool IsTemplate { get { return m_masterNodeCategory == AvailableShaderTypes.Template; } }
+
+		public bool IsLightweight { get { return TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight; } }
+
 		public AvailableShaderTypes MasterNodeCategory
 		{
 			get { return m_masterNodeCategory; }
@@ -1624,6 +1645,7 @@ namespace AmplifyShaderEditor
 		public List<PropertyDataCollector> CustomOutputList { get { return m_customOutputList; } }
 		public List<PropertyDataCollector> FunctionsList { get { return m_functionsList; } }
 		public List<PropertyDataCollector> GrabPassList { get { return m_grabPassList; } }
+		public Dictionary<string,string> GrabPassDict { get { return m_grabPassDict; } }
 		public List<InputCoordsCollector> CustomShadowCoordsList { get { return m_customShadowCoordsList; } }
 		public List<int> PackSlotsList { get { return m_packSlotsList; } }
 		public Dictionary<string, string> LocalFunctions { get { return m_localFunctions; } }

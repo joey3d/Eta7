@@ -160,7 +160,8 @@ namespace AmplifyShaderEditor
 
 			GeneratePattern();
 
-			dataCollector.AddToIncludes( UniqueId, Constants.UnityShaderVariables );
+			if( !( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight ) )
+				dataCollector.AddToIncludes( UniqueId, Constants.UnityShaderVariables );
 			string varName = string.Empty;
 			bool isFragment = dataCollector.IsFragmentCategory;
 			if ( dataCollector.TesselationActive && isFragment )
@@ -171,7 +172,7 @@ namespace AmplifyShaderEditor
 			{
 				if ( dataCollector.IsTemplate )
 				{
-					varName = dataCollector.TemplateDataCollectorInstance.GetScreenPos();
+					varName = dataCollector.TemplateDataCollectorInstance.GetScreenPosNormalized();
 				}
 				else
 				{

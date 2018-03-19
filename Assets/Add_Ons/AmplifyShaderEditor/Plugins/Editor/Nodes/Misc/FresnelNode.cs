@@ -95,9 +95,13 @@ namespace AmplifyShaderEditor
 
 					if( m_normalSpace == ViewSpace.Tangent )
 					{
+						if( dataCollector.IsTemplate )
+						{
+							normal = dataCollector.TemplateDataCollectorInstance.GetWorldNormal( UniqueId, m_currentPrecisionType, normal, OutputId );
+						}
 						dataCollector.AddToInput( UniqueId, SurfaceInputs.WORLD_NORMAL, m_currentPrecisionType );
 						dataCollector.ForceNormal = true;
-						normal = "WorldNormalVector( " + Constants.InputVarStr + " , " + normal + " )";
+						//normal = "WorldNormalVector( " + Constants.InputVarStr + " , " + normal + " )";
 					}
 				}
 				else

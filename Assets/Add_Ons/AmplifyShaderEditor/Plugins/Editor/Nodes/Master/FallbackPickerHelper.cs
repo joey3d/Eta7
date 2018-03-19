@@ -27,7 +27,7 @@ namespace AmplifyShaderEditor
 		{
 			EditorGUILayout.BeginHorizontal();
 			m_fallbackShader = owner.EditorGUILayoutTextField( FallbackShaderStr, m_fallbackShader );
-			if ( GUILayout.Button( string.Empty, UIUtils.InspectorPopdropdownStyle, GUILayout.Width( 10 ), GUILayout.Height( 19 ) ) )
+			if ( GUILayout.Button( string.Empty, UIUtils.InspectorPopdropdownFallback, GUILayout.Width( 17 ), GUILayout.Height( 19 ) ) )
 			{
 				DisplayShaderContext( owner, GUILayoutUtility.GetRect( GUIContent.none, EditorStyles.popup ) );
 			}

@@ -42,7 +42,14 @@ namespace AmplifyShaderEditor
 				{
 					string varName = "customSurfaceDepth" + OutputId;
 					GenerateInputInVertex( ref dataCollector, 2, varName, false );
-					string eyeInstruction = "-UnityObjectToViewPos( " + varName + " ).z";
+
+					string formatStr = string.Empty;
+					if( dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
+						formatStr = "-TransformWorldToView(TransformObjectToWorld({0})).z";
+					else
+						formatStr = "-UnityObjectToViewPos({0}).z";
+
+					string eyeInstruction = string.Format( formatStr, varName );
 					eyeDepth = "customEye" + OutputId;
 					dataCollector.TemplateDataCollectorInstance.RegisterCustomInterpolatedData( eyeDepth, WirePortDataType.FLOAT, m_currentPrecisionType, eyeInstruction );
 				}

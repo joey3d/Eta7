@@ -289,8 +289,10 @@ namespace AmplifyShaderEditor
 		private CullMode m_cullMode = CullMode.Back;
 
 		[SerializeField]
-		private AlphaMode m_alphaMode = AlphaMode.Opaque;
+		private InlineProperty m_inlineCullMode = new InlineProperty();
 
+		[SerializeField]
+		private AlphaMode m_alphaMode = AlphaMode.Opaque;
 
 		[SerializeField]
 		private RenderType m_renderType = RenderType.Opaque;
@@ -375,6 +377,11 @@ namespace AmplifyShaderEditor
 
 		private GUIStyle m_inspectorDefaultStyle;
 
+		[SerializeField]
+		private ReordenatorNode m_specColorReorder = null;
+
+		[SerializeField]
+		private int m_specColorOrderIndex = -1;
 
 		[SerializeField]
 		private ReordenatorNode m_maskClipReorder = null;
@@ -403,6 +410,7 @@ namespace AmplifyShaderEditor
 		private bool m_previousTessellationOn = false;
 		private bool m_initialize = true;
 		private bool m_checkChanges = true;
+		private bool m_lightModelChanged = true;
 
 		private PropertyNode m_dummyProperty = null;
 
@@ -641,7 +649,7 @@ namespace AmplifyShaderEditor
 
 			EditorGUILayout.BeginHorizontal();
 			m_customInspectorName = EditorGUILayoutTextField( CustomInspectorStr, m_customInspectorName );
-			if( GUILayoutButton( string.Empty, UIUtils.GetCustomStyle( CustomStyle.ResetToDefaultInspectorButton ) ) )
+			if( GUILayoutButton( string.Empty, UIUtils.GetCustomStyle( CustomStyle.ResetToDefaultInspectorButton ), GUILayout.Width( 15 ), GUILayout.Height( 15 ) ) )
 			{
 				GUIUtility.keyboardControl = 0;
 				m_customInspectorName = Constants.DefaultCustomInspector;
@@ -706,8 +714,12 @@ namespace AmplifyShaderEditor
 			DrawPrecisionProperty();
 			if( EditorGUI.EndChangeCheck() )
 				ContainerGraph.CurrentPrecision = m_currentPrecisionType;
-
-			m_cullMode = (CullMode)EditorGUILayoutEnumPopup( CullModeContent, m_cullMode );
+			//m_cullMode = (CullMode)EditorGUILayoutEnumPopup( CullModeContent, m_cullMode );
+			UndoParentNode inst = this;
+			m_inlineCullMode.CustomDrawer( ref inst, ( x ) => { m_cullMode = (CullMode)EditorGUILayoutEnumPopup( CullModeContent, m_cullMode ); }, CullModeContent.text );
+			//m_inlineCullMode.Value = (int)m_cullMode;
+			//m_inlineCullMode.EnumTypePopup( ref inst, CullModeContent.text, Enum.GetNames( typeof( CullMode ) ) );
+			//m_cullMode = (CullMode) m_inlineCullMode.Value;
 
 			m_renderPath = (RenderPath)EditorGUILayoutEnumPopup( RenderPathContent, m_renderPath );
 
@@ -737,7 +749,7 @@ namespace AmplifyShaderEditor
 			m_opacityMaskClipValue = EditorGUILayoutFloatField( OpacityMaskClipValueContent, m_opacityMaskClipValue );
 			if( EditorGUI.EndChangeCheck() )
 			{
-				if( m_currentMaterial!= null && m_currentMaterial.HasProperty( IOUtils.MaskClipValueName ) )
+				if( m_currentMaterial != null && m_currentMaterial.HasProperty( IOUtils.MaskClipValueName ) )
 				{
 					m_currentMaterial.SetFloat( IOUtils.MaskClipValueName, m_opacityMaskClipValue );
 				}
@@ -913,32 +925,11 @@ namespace AmplifyShaderEditor
 			}
 
 			EditorGUILayout.EndVertical();
-
-			if( m_currentLightModel != m_lastLightModel )
-			{
-				if( m_currentLightModel == StandardShaderLightModel.CustomLighting && m_masterNodeCategory == 0 )
-					ContainerGraph.CurrentCanvasMode = NodeAvailability.CustomLighting;
-				else if( m_masterNodeCategory == 0 )
-					ContainerGraph.CurrentCanvasMode = NodeAvailability.SurfaceShader;
-				CacheCurrentSettings();
-				m_lastLightModel = m_currentLightModel;
-				DeleteAllInputConnections( true );
-				AddMasterPorts();
-				ConnectFromCache();
-			}
 		}
 
-		public override void Draw( DrawInfo drawInfo )
+		public override void OnNodeLogicUpdate( DrawInfo drawInfo )
 		{
-			base.Draw( drawInfo );
-
-			if( drawInfo.CurrentEventType == EventType.Repaint )
-			{
-				if( m_containerGraph.IsInstancedShader || m_renderingOptionsOpHelper.EnableInstancing )
-				{
-					DrawInstancedIcon( drawInfo );
-				}
-			}
+			base.OnNodeLogicUpdate( drawInfo );
 
 			if( m_initialize )
 			{
@@ -950,6 +941,44 @@ namespace AmplifyShaderEditor
 					m_dummyProperty.ContainerGraph = ContainerGraph;
 				}
 			}
+
+			if( m_currentLightModel != m_lastLightModel )
+				m_lightModelChanged = true;
+
+			if( m_lightModelChanged )
+			{
+				m_lightModelChanged = false;
+				if( m_currentLightModel == StandardShaderLightModel.BlinnPhong )
+				{
+					if( m_specColorReorder == null )
+					{
+						m_specColorReorder = ScriptableObject.CreateInstance<ReordenatorNode>();
+						m_specColorReorder.ContainerGraph = ContainerGraph;
+						m_specColorReorder.OrderIndex = m_specColorOrderIndex;
+						m_specColorReorder.Init( "_SpecColor", "Specular Color", null );
+					}
+
+					UIUtils.RegisterPropertyNode( m_specColorReorder );
+				}
+				else
+				{
+					if( m_specColorReorder != null )
+						UIUtils.UnregisterPropertyNode( m_specColorReorder );
+				}
+
+				if( m_currentLightModel == StandardShaderLightModel.CustomLighting && m_masterNodeCategory == 0 )
+					ContainerGraph.CurrentCanvasMode = NodeAvailability.CustomLighting;
+				else if( m_masterNodeCategory == 0 )
+					ContainerGraph.CurrentCanvasMode = NodeAvailability.SurfaceShader;
+				CacheCurrentSettings();
+				m_lastLightModel = m_currentLightModel;
+				DeleteAllInputConnections( true );
+				AddMasterPorts();
+				ConnectFromCache();
+			}
+
+			if( drawInfo.CurrentEventType != EventType.Layout )
+				return;
 
 			if( m_transmissionPort != null && m_transmissionPort.IsConnected && m_renderPath != RenderPath.ForwardOnly )
 			{
@@ -1073,6 +1102,16 @@ namespace AmplifyShaderEditor
 				}
 
 				m_checkChanges = false;
+			}
+		}
+
+		public override void OnNodeRepaint( DrawInfo drawInfo )
+		{
+			base.OnNodeRepaint( drawInfo );
+
+			if( m_containerGraph.IsInstancedShader || m_renderingOptionsOpHelper.EnableInstancing )
+			{
+				DrawInstancedIcon( drawInfo );
 			}
 		}
 
@@ -1725,7 +1764,7 @@ namespace AmplifyShaderEditor
 				m_currentDataCollector.AddToInput( UniqueId, "fixed filler", true );
 
 			if( m_currentLightModel == StandardShaderLightModel.BlinnPhong )
-				m_currentDataCollector.AddToProperties( -1, "[HideInInspector]_SpecColor(\"SpecularColor\",Color)=(1,1,1,1)", -1 );
+				m_currentDataCollector.AddToProperties( -1, "_SpecColor(\"Specular Color\",Color)=(1,1,1,1)", m_specColorReorder.OrderIndex );
 
 			//Tesselation
 			if( m_tessOpHelper.EnableTesselation )
@@ -1794,7 +1833,7 @@ namespace AmplifyShaderEditor
 					tags = "Tags{ " + tags + " }";
 					AddRenderTags( ref ShaderBody, tags );
 					AddShaderLOD( ref ShaderBody, m_shaderLOD );
-					AddRenderState( ref ShaderBody, "Cull", m_cullMode.ToString() );
+					AddRenderState( ref ShaderBody, "Cull", m_inlineCullMode.GetValueOrProperty( m_cullMode.ToString() ) );
 					m_customBlendAvailable = ( m_alphaMode == AlphaMode.Custom || m_alphaMode == AlphaMode.Opaque );
 					if( ( m_zBufferHelper.IsActive && m_customBlendAvailable ) || m_outlineHelper.UsingZWrite || m_outlineHelper.UsingZTest )
 					{
@@ -1875,6 +1914,13 @@ namespace AmplifyShaderEditor
 							m_renderPath = RenderPath.ForwardOnly;
 						}
 
+						// if outline is ON change render path
+						if( m_outlineHelper.EnableOutline && m_renderPath != RenderPath.ForwardOnly )
+						{
+							Debug.Log( "Automatically changing Render Path to Forward Only since outline only works in forward rendering." );
+							m_renderPath = RenderPath.ForwardOnly;
+						}
+
 						// if transmission is ON change render path
 						if( hasTransmission && m_renderPath != RenderPath.ForwardOnly )
 						{
@@ -1940,7 +1986,7 @@ namespace AmplifyShaderEditor
 							OptionalParameters += "noshadow" + Constants.OptionalParametersSep;
 						}
 
-						if( m_renderingOptionsOpHelper.IsOptionActive( " Add Pass" ) && usingDebugPort)
+						if( m_renderingOptionsOpHelper.IsOptionActive( " Add Pass" ) && usingDebugPort )
 						{
 							OptionalParameters += "noforwardadd" + Constants.OptionalParametersSep;
 						}
@@ -2880,6 +2926,18 @@ namespace AmplifyShaderEditor
 				{
 					m_additionalDefines.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
 				}
+
+				if( UIUtils.CurrentShaderVersion() > 14501 )
+				{
+					m_inlineCullMode.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
+				}
+
+				if( UIUtils.CurrentShaderVersion() > 14502 )
+				{
+					m_specColorOrderIndex = Convert.ToInt32( GetCurrentParam( ref nodeParams ) );
+				}
+
+				m_lightModelChanged = true;
 				m_lastLightModel = m_currentLightModel;
 				DeleteAllInputConnections( true );
 				AddMasterPorts();
@@ -2949,6 +3007,8 @@ namespace AmplifyShaderEditor
 			IOUtils.AddFieldValueToString( ref nodeInfo, m_alphaToCoverage );
 			m_dependenciesHelper.WriteToString( ref nodeInfo );
 			m_additionalDefines.WriteToString( ref nodeInfo );
+			m_inlineCullMode.WriteToString( ref nodeInfo );
+			IOUtils.AddFieldValueToString( ref nodeInfo, ( m_specColorReorder != null ) ? m_specColorReorder.OrderIndex : -1 );
 		}
 
 		private bool TestCustomBlendMode()

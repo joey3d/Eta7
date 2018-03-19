@@ -1,4 +1,57 @@
 Release Notes:
+v1.5.0 dev 01:
+* New Samples:
+    * SRP Lightweight GlintSparkle
+    * SRP Lightweight Coverage
+
+* Fixes:
+    * Fixed issue on loading shader with missing shader functions
+    * Fixed issue on duplicate pragmas over generated shader
+    * Fixed issue with template post processor not correctly registering new templates
+    * Fixed issue on template output nodes modules incorrectly sharing foldout value
+    * Fixed Undo issue when undoing deleted property type nodes after saving shader
+    * Fixed 'Static Switch' node registering duplicates in the material properties group
+
+* Improvements:
+    * Reorganized samples shader paths
+    * Reorganized template menu items
+    * Canvas and output node title now shows shader name without relative paths
+    * 'Register Local Var' node now generates a new name when duplicated
+    * 'Indirect Diffuse Light', 'Indirect Specular Light' and 'Light Attenuation' nodes now work on templates
+
+v1.4.5 dev 04:
+* New features:
+    * Added support for multi-pass templates
+    * Added support for Lightweight Scriptable Rendering Pipeline
+
+* New Shader Function:
+    * Create Normal : Generates a normal map from a height map
+
+* New Template:
+    * LightweightSRP
+
+* Fixes:
+    * Fixed texture coordinates generation in templates
+    * Changed initialization in 'Triplanar Sample' node to prevent null pointer errors
+
+v1.4.5 dev 03:
+* Improvements:
+    * Exposed Specular Color property into the Output node material list when Blinn Phong Light Model is selected
+
+v1.4.5 dev 02:
+* Fixes:
+    * Fixed Auto-Register option not being saved for property type nodes
+    * Fixed issues with generated normalized screen position values over templates
+
+* Improvements:
+    * Cull, Stencil, Color Mask and Depth options can now reference properties instead of standard options
+    * Redone visuals of property type nodes Attributes list to be easier to use
+    * Added new Enum and Custom attributes to property type nodes
+        * Enum on Create Enum mode creates an Enum attribute using the specified Name/Value pairs
+        * Enum on Use Engine Enum Class mode creates an Enum attribute from the specified class
+        * Custom attribute allows to specify completely custom attributes
+    * Outline now forces shader to be Forward only to prevent visual inconsistencies
+
 v1.4.5 dev 01:
 * New Shader Function:
     * Constant Bias Scale

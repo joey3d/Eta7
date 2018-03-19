@@ -72,7 +72,8 @@ namespace AmplifyShaderEditor
 			
 			if( !m_inputPorts[ 2 ].IsConnected )
 			{
-				dataCollector.AddToIncludes( UniqueId, Constants.UnityShaderVariables );
+				if( !( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight ) )
+					dataCollector.AddToIncludes( UniqueId, Constants.UnityShaderVariables );
 				timePort += " * _Time.y";
 			}
 

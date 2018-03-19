@@ -56,6 +56,9 @@ namespace AmplifyShaderEditor
 		private UsageListSamplerNodes m_samplerNodes = new UsageListSamplerNodes();
 
 		[SerializeField]
+		private UsageListFloatIntNodes m_floatNodes = new UsageListFloatIntNodes();
+
+		[SerializeField]
 		private UsageListTexturePropertyNodes m_texturePropertyNodes = new UsageListTexturePropertyNodes();
 
 		[SerializeField]
@@ -86,6 +89,10 @@ namespace AmplifyShaderEditor
 		private UsageListFunctionSwitchCopyNodes m_functionSwitchCopyNodes = new UsageListFunctionSwitchCopyNodes();
 
 		[SerializeField]
+		private UsageListTemplateMultiPassMasterNodes m_multiPassMasterNodes;
+
+
+		[SerializeField]
 		private int m_masterNodeId = Constants.INVALID_NODE_ID;
 
 		[SerializeField]
@@ -113,7 +120,10 @@ namespace AmplifyShaderEditor
 		private PrecisionType m_currentPrecision = PrecisionType.Float;
 
 		[SerializeField]
-		public NodeAvailability m_currentCanvasMode = NodeAvailability.SurfaceShader;
+		private NodeAvailability m_currentCanvasMode = NodeAvailability.SurfaceShader;
+
+		[SerializeField]
+		private TemplateSRPType m_currentSRPType = TemplateSRPType.BuiltIn;
 
 		//private List<ParentNode> m_visibleNodes = new List<ParentNode>();
 
@@ -156,11 +166,15 @@ namespace AmplifyShaderEditor
 		protected int m_normalDependentCount = 0;
 		private bool m_forceCategoryRefresh = false;
 
+		[SerializeField]
+		private bool m_forceRepositionCheck = false;
+
 		public void Init()
 		{
 			m_normalDependentCount = 0;
 			m_nodes = new List<ParentNode>();
 			m_samplerNodes = new UsageListSamplerNodes();
+			m_floatNodes = new UsageListFloatIntNodes();
 			m_texturePropertyNodes = new UsageListTexturePropertyNodes();
 			m_textureArrayNodes = new UsageListTextureArrayNodes();
 			m_propertyNodes = new UsageListPropertyNodes();
@@ -171,6 +185,7 @@ namespace AmplifyShaderEditor
 			m_functionOutputNodes = new UsageListFunctionOutputNodes();
 			m_functionSwitchNodes = new UsageListFunctionSwitchNodes();
 			m_functionSwitchCopyNodes = new UsageListFunctionSwitchCopyNodes();
+			m_multiPassMasterNodes = new UsageListTemplateMultiPassMasterNodes();
 
 			m_selectedNodes = new List<ParentNode>();
 			m_markedForDeletion = new List<ParentNode>();
@@ -207,6 +222,7 @@ namespace AmplifyShaderEditor
 			m_functionOutputNodes.UpdateNodeArr();
 			m_functionSwitchNodes.UpdateNodeArr();
 			m_functionSwitchCopyNodes.UpdateNodeArr();
+			m_multiPassMasterNodes.UpdateNodeArr();
 			m_texturePropertyNodes.UpdateNodeArr();
 			m_textureArrayNodes.UpdateNodeArr();
 			m_screenColorNodes.UpdateNodeArr();
@@ -303,6 +319,7 @@ namespace AmplifyShaderEditor
 			m_functionOutputNodes.Clear();
 			m_functionSwitchNodes.Clear();
 			m_functionSwitchCopyNodes.Clear();
+			m_multiPassMasterNodes.Clear();
 			m_texturePropertyNodes.Clear();
 			m_textureArrayNodes.Clear();
 			m_screenColorNodes.Clear();
@@ -384,14 +401,14 @@ namespace AmplifyShaderEditor
 					PropagateHighlightDeselection( nextNode, wireRef.PortId );
 				}
 			}
-			
+
 			RegisterLocalVarNode regNode = node as RegisterLocalVarNode;
 			if( (object)regNode != null )
 			{
 				int count = regNode.NodeReferences.Count;
 				for( int i = 0; i < count; i++ )
 				{
-					PropagateHighlightDeselection( regNode.NodeReferences[ i ],-1 );
+					PropagateHighlightDeselection( regNode.NodeReferences[ i ], -1 );
 				}
 			}
 		}
@@ -495,7 +512,7 @@ namespace AmplifyShaderEditor
 
 			m_markedForDeletion.Clear();
 			//m_markedForDeletion = null;
-			
+
 			m_nodePreviewList.Clear();
 			//m_nodePreviewList = null;
 
@@ -559,6 +576,9 @@ namespace AmplifyShaderEditor
 
 			m_functionSwitchCopyNodes.Destroy();
 			m_functionSwitchCopyNodes = null;
+
+			m_multiPassMasterNodes.Destroy();
+			m_multiPassMasterNodes = null;
 
 			m_texturePropertyNodes.Destroy();
 			m_texturePropertyNodes = null;
@@ -777,7 +797,9 @@ namespace AmplifyShaderEditor
 			SaveIsDirty = false;
 			if( m_afterDeserializeFlag )
 			{
-				m_afterDeserializeFlag = false;
+				// this is now done after logic update... templates needs it this way
+				//m_afterDeserializeFlag = false;
+
 				CleanCorruptedNodes();
 				if( m_nodes.Count == 0 )
 				{
@@ -789,7 +811,7 @@ namespace AmplifyShaderEditor
 					if( OnEmptyGraphDetectedEvt != null )
 						OnEmptyGraphDetectedEvt( this );
 				}
-
+				
 				//for( int i = 0; i < m_nodes.Count; i++ )
 				//{
 				//	m_nodes[ i ].SetContainerGraph( this );
@@ -856,7 +878,7 @@ namespace AmplifyShaderEditor
 
 				// Just a sanity check
 				nodeStyleOff = UIUtils.GetCustomStyle( CustomStyle.NodeWindowOff );
-				nodeStyleOn = UIUtils.GetCustomStyle( CustomStyle.NodeWindowOn );
+				nodeStyleOn = UIUtils.GetCustomStyle( CustomStyle.NodeWindowOn );//= UIUtils.GetCustomStyle( CustomStyle.NodeWindowOn );
 				nodeTitle = UIUtils.GetCustomStyle( CustomStyle.NodeHeader );
 				commentaryBackground = UIUtils.GetCustomStyle( CustomStyle.CommentaryBackground );
 
@@ -868,81 +890,60 @@ namespace AmplifyShaderEditor
 						default:
 						case NodeLOD.LOD0:
 						{
-							UIUtils.MainSkin.textField.border.left = 4;
-							UIUtils.MainSkin.textField.border.right = 4;
-							UIUtils.MainSkin.textField.border.top = 4;
-							UIUtils.MainSkin.textField.border.bottom = 4;
+							UIUtils.MainSkin.textField.border = UIUtils.RectOffsetFour;
+							nodeStyleOff.border = UIUtils.RectOffsetSix;
+							UIUtils.NodeWindowOffSquare.border = UIUtils.RectOffsetFour;
 
-							nodeStyleOff.border.left = 6;
-							nodeStyleOff.border.right = 6;
-							nodeStyleOff.border.top = 6;
-							nodeStyleOff.border.bottom = 6;
-
-							nodeStyleOn.border.left = 6;
-							nodeStyleOn.border.right = 6;
-							nodeStyleOn.border.top = 6;
-							nodeStyleOn.border.bottom = 6;
+							nodeStyleOn.border = UIUtils.RectOffsetSix;
+							UIUtils.NodeWindowOnSquare.border = UIUtils.RectOffsetSix;
 
 							nodeTitle.border.left = 6;
 							nodeTitle.border.right = 6;
 							nodeTitle.border.top = 6;
 							nodeTitle.border.bottom = 4;
 
-							commentaryBackground.border.left = 6;
-							commentaryBackground.border.right = 6;
-							commentaryBackground.border.top = 6;
-							commentaryBackground.border.bottom = 6;
+							UIUtils.NodeHeaderSquare.border = UIUtils.RectOffsetFour;
+							commentaryBackground.border = UIUtils.RectOffsetSix;
 						}
 						break;
 						case NodeLOD.LOD1:
 						{
-							UIUtils.MainSkin.textField.border.left = 2;
-							UIUtils.MainSkin.textField.border.right = 2;
-							UIUtils.MainSkin.textField.border.top = 2;
-							UIUtils.MainSkin.textField.border.bottom = 2;
+							UIUtils.MainSkin.textField.border = UIUtils.RectOffsetTwo;
+							nodeStyleOff.border = UIUtils.RectOffsetFive;
+							UIUtils.NodeWindowOffSquare.border = UIUtils.RectOffsetFive;
 
-							nodeStyleOff.border.left = 5;
-							nodeStyleOff.border.right = 5;
-							nodeStyleOff.border.top = 5;
-							nodeStyleOff.border.bottom = 5;
-
-							nodeStyleOn.border.left = 5;
-							nodeStyleOn.border.right = 5;
-							nodeStyleOn.border.top = 5;
-							nodeStyleOn.border.bottom = 5;
+							nodeStyleOn.border = UIUtils.RectOffsetFive;
+							UIUtils.NodeWindowOnSquare.border = UIUtils.RectOffsetFour;
 
 							nodeTitle.border.left = 5;
 							nodeTitle.border.right = 5;
 							nodeTitle.border.top = 5;
 							nodeTitle.border.bottom = 2;
 
-							commentaryBackground.border.left = 5;
-							commentaryBackground.border.right = 5;
-							commentaryBackground.border.top = 5;
-							commentaryBackground.border.bottom = 5;
+							UIUtils.NodeHeaderSquare.border = UIUtils.RectOffsetThree;
+							commentaryBackground.border = UIUtils.RectOffsetFive;
 						}
 						break;
 						case NodeLOD.LOD2:
 						{
-							UIUtils.MainSkin.textField.border.left = 1;
-							UIUtils.MainSkin.textField.border.right = 1;
-							UIUtils.MainSkin.textField.border.top = 1;
-							UIUtils.MainSkin.textField.border.bottom = 1;
+							UIUtils.MainSkin.textField.border = UIUtils.RectOffsetOne;
 
 							nodeStyleOff.border.left = 2;
 							nodeStyleOff.border.right = 2;
 							nodeStyleOff.border.top = 2;
 							nodeStyleOff.border.bottom = 3;
 
+							UIUtils.NodeWindowOffSquare.border = UIUtils.RectOffsetThree;
+
 							nodeStyleOn.border.left = 4;
 							nodeStyleOn.border.right = 4;
 							nodeStyleOn.border.top = 4;
 							nodeStyleOn.border.bottom = 3;
 
-							nodeTitle.border.left = 2;
-							nodeTitle.border.right = 2;
-							nodeTitle.border.top = 2;
-							nodeTitle.border.bottom = 2;
+							UIUtils.NodeWindowOnSquare.border = UIUtils.RectOffsetThree;
+
+							nodeTitle.border = UIUtils.RectOffsetTwo;
+							UIUtils.NodeHeaderSquare.border = UIUtils.RectOffsetTwo;
 
 							commentaryBackground.border.left = 2;
 							commentaryBackground.border.right = 2;
@@ -954,25 +955,20 @@ namespace AmplifyShaderEditor
 						case NodeLOD.LOD4:
 						case NodeLOD.LOD5:
 						{
-							UIUtils.MainSkin.textField.border.left = 0;
-							UIUtils.MainSkin.textField.border.right = 0;
-							UIUtils.MainSkin.textField.border.top = 0;
-							UIUtils.MainSkin.textField.border.bottom = 0;
+							UIUtils.MainSkin.textField.border = UIUtils.RectOffsetZero;
 
 							nodeStyleOff.border.left = 1;
 							nodeStyleOff.border.right = 1;
 							nodeStyleOff.border.top = 1;
 							nodeStyleOff.border.bottom = 2;
 
-							nodeStyleOn.border.left = 2;
-							nodeStyleOn.border.right = 2;
-							nodeStyleOn.border.top = 2;
-							nodeStyleOn.border.bottom = 2;
+							UIUtils.NodeWindowOffSquare.border = UIUtils.RectOffsetTwo;
 
-							nodeTitle.border.left = 1;
-							nodeTitle.border.right = 1;
-							nodeTitle.border.top = 1;
-							nodeTitle.border.bottom = 1;
+							nodeStyleOn.border = UIUtils.RectOffsetTwo;
+							UIUtils.NodeWindowOnSquare.border = UIUtils.RectOffsetTwo;
+
+							nodeTitle.border = UIUtils.RectOffsetOne;
+							UIUtils.NodeHeaderSquare.border = UIUtils.RectOffsetOne;
 
 							commentaryBackground.border.left = 1;
 							commentaryBackground.border.right = 1;
@@ -996,6 +992,22 @@ namespace AmplifyShaderEditor
 			for( int i = 0; i < nodeCount; i++ )
 			{
 				m_nodes[ i ].OnNodeLogicUpdate( drawInfo );
+			}
+
+			if( m_afterDeserializeFlag )
+			{
+				m_afterDeserializeFlag = false;
+				if( CurrentCanvasMode == NodeAvailability.TemplateShader )
+				{
+					RefreshLinkedMasterNodes();
+
+					//RepositionTemplateNodes( CurrentMasterNode );
+				}
+			}
+
+			if( m_forceRepositionCheck )
+			{
+				RepositionTemplateNodes( CurrentMasterNode );
 			}
 
 			//for( int i = 0; i < m_functionNodes.NodesList.Count; i++ )
@@ -1132,30 +1144,20 @@ namespace AmplifyShaderEditor
 				// Revert LOD changes to LOD0 (only if it's different)
 				if( UIUtils.MainSkin.textField.border.left != 4 )
 				{
-					UIUtils.MainSkin.textField.border.left = 4;
-					UIUtils.MainSkin.textField.border.right = 4;
-					UIUtils.MainSkin.textField.border.top = 4;
-					UIUtils.MainSkin.textField.border.bottom = 4;
+					UIUtils.MainSkin.textField.border = UIUtils.RectOffsetFour;
+					nodeStyleOff.border = UIUtils.RectOffsetSix;
+					UIUtils.NodeWindowOffSquare.border = UIUtils.RectOffsetFour;
 
-					nodeStyleOff.border.left = 6;
-					nodeStyleOff.border.right = 6;
-					nodeStyleOff.border.top = 6;
-					nodeStyleOff.border.bottom = 6;
-
-					nodeStyleOn.border.left = 6;
-					nodeStyleOn.border.right = 6;
-					nodeStyleOn.border.top = 6;
-					nodeStyleOn.border.bottom = 6;
+					nodeStyleOn.border = UIUtils.RectOffsetSix;
+					UIUtils.NodeWindowOnSquare.border = UIUtils.RectOffsetSix;
 
 					nodeTitle.border.left = 6;
 					nodeTitle.border.right = 6;
 					nodeTitle.border.top = 6;
 					nodeTitle.border.bottom = 4;
 
-					commentaryBackground.border.left = 6;
-					commentaryBackground.border.right = 6;
-					commentaryBackground.border.top = 6;
-					commentaryBackground.border.bottom = 6;
+					UIUtils.NodeHeaderSquare.border = UIUtils.RectOffsetFour;
+					commentaryBackground.border = UIUtils.RectOffsetSix;
 				}
 			}
 
@@ -1901,10 +1903,10 @@ namespace AmplifyShaderEditor
 			Undo.RecordObject( this, Constants.UndoDeleteNodeId );
 
 			for( int i = 0; i < selectedNodes.Length; i++ )
-				selectedNodes[i].RecordObject( Constants.UndoDeleteNodeId );
+				selectedNodes[ i ].RecordObject( Constants.UndoDeleteNodeId );
 
 			for( int i = 0; i < extraNodes.Count; i++ )
-				extraNodes[i].RecordObject( Constants.UndoDeleteNodeId );
+				extraNodes[ i ].RecordObject( Constants.UndoDeleteNodeId );
 
 			//Record deleting connections
 			for( int i = 0; i < selectedNodes.Length; i++ )
@@ -1965,7 +1967,7 @@ namespace AmplifyShaderEditor
 			DestroyNode( node );
 		}
 
-		public void DestroyNode( ParentNode node, bool registerUndo = true,bool destroyMasterNode = false)
+		public void DestroyNode( ParentNode node, bool registerUndo = true, bool destroyMasterNode = false )
 		{
 			if( node == null )
 			{
@@ -1991,8 +1993,7 @@ namespace AmplifyShaderEditor
 			//		}
 			//	}
 			//}
-
-			if( destroyMasterNode || node.UniqueId != m_masterNodeId )
+			if( destroyMasterNode || ( node.UniqueId != m_masterNodeId && !m_multiPassMasterNodes.HasNode( node.UniqueId ) ) )
 			{
 				m_nodeGrid.RemoveNodeFromGrid( node, false );
 				//Send Deactivation signal if active
@@ -2045,6 +2046,7 @@ namespace AmplifyShaderEditor
 				{
 					UIUtils.MarkUndoAction();
 					Undo.RegisterCompleteObjectUndo( ParentWindow, Constants.UndoDeleteNodeId );
+					Undo.RegisterCompleteObjectUndo( this, Constants.UndoDeleteNodeId );
 					Undo.RecordObject( this, Constants.UndoDeleteNodeId );
 					node.RecordObjectOnDestroy( Constants.UndoDeleteNodeId );
 				}
@@ -2367,8 +2369,17 @@ namespace AmplifyShaderEditor
 
 		public void ForceSignalPropagationOnMasterNode()
 		{
-			if( CurrentOutputNode != null )
+			if( m_multiPassMasterNodes.Count > 0 )
+			{
+				int mpCount = m_multiPassMasterNodes.Count;
+				for( int i = 0; i < mpCount; i++ )
+				{
+					m_multiPassMasterNodes.NodesList[ i ].GenerateSignalPropagation();
+				}
+			}
+			else if( CurrentOutputNode != null )
 				CurrentOutputNode.GenerateSignalPropagation();
+
 			List<FunctionOutput> allOutputs = m_functionOutputNodes.NodesList;
 			for( int i = 0; i < allOutputs.Count; i++ )
 			{
@@ -2567,7 +2578,7 @@ namespace AmplifyShaderEditor
 					}
 				}
 			}
-
+			
 			m_nodes.Sort( ( x, y ) => { return y.GraphDepth.CompareTo( x.GraphDepth ); } );
 		}
 
@@ -2677,11 +2688,201 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public MasterNode ReplaceMasterNode( AvailableShaderTypes newType )
+		public void CrossCheckTemplateNodes( TemplateDataParent templateData )
+		{
+			/*Paulo*/
+			DeSelectAll();
+			TemplateMultiPassMasterNode newMasterNode = null;
+			Dictionary<string, TemplateReplaceHelper> nodesDict = new Dictionary<string, TemplateReplaceHelper>();
+			int mpNodeCount = m_multiPassMasterNodes.NodesList.Count;
+			for( int i = 0; i < mpNodeCount; i++ )
+			{
+				nodesDict.Add( m_multiPassMasterNodes.NodesList[ i ].OriginalPassName, new TemplateReplaceHelper( m_multiPassMasterNodes.NodesList[ i ] ));
+			}
+			
+			TemplateMultiPassMasterNode currMasterNode = GetNode( m_masterNodeId ) as TemplateMultiPassMasterNode;
+		
+			TemplateMultiPass multipassData = templateData as TemplateMultiPass;
+			m_currentSRPType = multipassData.SubShaders[ 0 ].Modules.SRPType;
+			
+			Vector2 currentPosition = currMasterNode.Vec2Position;
+			for( int subShaderIdx = 0; subShaderIdx < multipassData.SubShaders.Count; subShaderIdx++ )
+			{
+				for( int passIdx = 0; passIdx < multipassData.SubShaders[ subShaderIdx ].Passes.Count; passIdx++ )
+				{
+					string currPassName = multipassData.SubShaders[ subShaderIdx ].Passes[ passIdx ].PassNameContainer.Data;
+					if( nodesDict.ContainsKey( currPassName ) )
+					{
+						bool wasMainNode = nodesDict[ currPassName ].MasterNode.IsMainOutputNode;
+
+						currentPosition.y += nodesDict[currPassName].MasterNode.Position.height + 10;
+						nodesDict[ currPassName ].Used = true;
+						nodesDict[ currPassName ].MasterNode.SetTemplate( multipassData, false, false, subShaderIdx, passIdx );
+						if( wasMainNode && !nodesDict[ currPassName ].MasterNode.IsMainOutputNode )
+						{
+							nodesDict[ currPassName ].MasterNode.ReleaseResources();
+						}
+						else if( !wasMainNode && nodesDict[ currPassName ].MasterNode.IsMainOutputNode )
+						{
+							newMasterNode = nodesDict[ currPassName ].MasterNode;
+						}
+					}
+					else
+					{
+						TemplateMultiPassMasterNode masterNode = CreateNode( typeof( TemplateMultiPassMasterNode ), false ) as TemplateMultiPassMasterNode;
+						if( multipassData.SubShaders[subShaderIdx].Passes[passIdx].IsMainPass )
+						{
+							newMasterNode = masterNode;
+							currMasterNode.ReleaseResources();
+						}
+						masterNode.Vec2Position = currentPosition;
+						masterNode.SetTemplate( multipassData, true, true, subShaderIdx, passIdx );
+						//currentPosition.y += masterNode.HeightEstimate + 10;
+					}
+				}
+			}
+			
+			foreach(KeyValuePair<string,TemplateReplaceHelper> kvp in nodesDict )
+			{
+				if( !kvp.Value.Used )
+					DestroyNode( kvp.Value.MasterNode, false, true );
+			}
+			nodesDict.Clear();
+			
+			if( newMasterNode != null )
+			{
+				m_masterNodeId = newMasterNode.UniqueId;
+				newMasterNode.OnMaterialUpdatedEvent += OnMaterialUpdatedEvent;
+				newMasterNode.OnShaderUpdatedEvent += OnShaderUpdatedEvent;
+				newMasterNode.IsMainOutputNode = true;
+			}
+		}
+
+		public void RefreshLinkedMasterNodes()
+		{
+			if( DebugConsoleWindow.DeveloperMode )
+				Debug.Log( "Refresh linked master nodes" );
+
+			int mpCount = m_multiPassMasterNodes.Count;
+			if( mpCount > 1 )
+			{
+				Dictionary<string, List<InputPort>> registeredLinks = new Dictionary<string, List<InputPort>>();
+				for( int i = 0; i < mpCount; i++ )
+				{
+					CheckLinkedPorts( ref registeredLinks, m_multiPassMasterNodes.NodesList[ mpCount - 1 - i ] );
+				}
+
+				foreach( KeyValuePair<string, List<InputPort>> kvp in registeredLinks )
+				{
+					int linkCount = kvp.Value.Count;
+					if( linkCount == 1 )
+					{
+						kvp.Value[ 0 ].Visible = true;
+					}
+					else
+					{
+						kvp.Value[ 0 ].Visible = true;
+						for( int i = 1; i < linkCount; i++ )
+						{
+							kvp.Value[ i ].SetExternalLink( kvp.Value[ 0 ].NodeId, kvp.Value[ 0 ].PortId );
+							kvp.Value[ i ].Visible = false;
+						}
+					}
+					kvp.Value.Clear();
+				}
+				registeredLinks.Clear();
+				registeredLinks = null;
+			}
+
+			m_multiPassMasterNodes.NodesList.Sort( ( x, y ) => (x.SubShaderIdx * 1000 + x.PassIdx).CompareTo( y.SubShaderIdx * 1000 + y.PassIdx ) );
+			m_multiPassMasterNodes.UpdateNodeArr();
+
+			for( int i = 0; i < mpCount; i++ )
+			{
+				int visiblePorts = 0;
+				for( int j = 0; j < m_multiPassMasterNodes.NodesList[ i ].InputPorts.Count; j++ )
+				{
+					if( m_multiPassMasterNodes.NodesList[ i ].InputPorts[ j ].Visible )
+					{
+						visiblePorts++;
+					}
+				}
+
+				if( m_multiPassMasterNodes.NodesList[ i ].VisiblePorts != visiblePorts )
+				{
+					m_multiPassMasterNodes.NodesList[ i ].VisiblePorts = visiblePorts;
+					ForceRepositionCheck = true;
+				}
+
+				m_multiPassMasterNodes.NodesList[ i ].Docking = visiblePorts <= 0;
+			}
+		}
+
+
+		void CheckLinkedPorts( ref Dictionary<string, List<InputPort>> registeredLinks, TemplateMultiPassMasterNode masterNode )
+		{
+			if( masterNode.HasLinkPorts )
+			{
+				int inputCount = masterNode.InputPorts.Count;
+				for( int i = 0; i < inputCount; i++ )
+				{
+					if( !string.IsNullOrEmpty( masterNode.InputPorts[ i ].ExternalLinkId ) )
+					{
+						string linkId = masterNode.InputPorts[ i ].ExternalLinkId;
+						if( !registeredLinks.ContainsKey( masterNode.InputPorts[ i ].ExternalLinkId ) )
+						{
+							registeredLinks.Add( linkId, new List<InputPort>());
+						}
+
+						if( masterNode.IsMainOutputNode )
+						{
+							registeredLinks[ linkId ].Insert( 0, masterNode.InputPorts[ i ] );
+						}
+						else
+						{
+							registeredLinks[ linkId ].Add( masterNode.InputPorts[ i ] );
+						}
+					}
+					else
+					{
+						masterNode.InputPorts[ i ].Visible = true;
+					}
+				}
+			}
+			else
+			{
+				int inputCount = masterNode.InputPorts.Count;
+				for( int i = 0; i < inputCount; i++ )
+				{
+					masterNode.InputPorts[ i ].Visible = true;
+				}
+			}
+		}
+
+		public MasterNode ReplaceMasterNode( AvailableShaderTypes newType, bool writeDefaultData = false, TemplateDataParent templateData = null )
 		{
 			DeSelectAll();
 			ResetNodeConnStatus();
 			MasterNode newMasterNode = null;
+			List<TemplateMultiPassMasterNode> nodesToDelete = null;
+			int mpNodeCount = m_multiPassMasterNodes.NodesList.Count;
+			if( mpNodeCount > 0 )
+			{
+				nodesToDelete = new List<TemplateMultiPassMasterNode>();
+				for( int i = 0; i < mpNodeCount; i++ )
+				{
+					if( m_multiPassMasterNodes.NodesList[ i ].UniqueId != m_masterNodeId )
+					{
+						nodesToDelete.Add( m_multiPassMasterNodes.NodesList[ i ] );
+					}
+				}
+			}
+			MasterNode currMasterNode = GetNode( m_masterNodeId ) as MasterNode;
+			if( currMasterNode != null )
+			{
+				currMasterNode.ReleaseResources();
+			}
+
 			switch( newType )
 			{
 				default:
@@ -2694,18 +2895,56 @@ namespace AmplifyShaderEditor
 				case AvailableShaderTypes.Template:
 				{
 					CurrentCanvasMode = NodeAvailability.TemplateShader;
-					newMasterNode = CreateNode( typeof( TemplateMasterNode ), false ) as MasterNode;
+					if( templateData.TemplateType == TemplateDataType.LegacySinglePass )
+					{
+						newMasterNode = CreateNode( typeof( TemplateMasterNode ), false ) as MasterNode;
+						( newMasterNode as TemplateMasterNode ).SetTemplate( templateData as TemplateData, writeDefaultData, false );
+						m_currentSRPType = TemplateSRPType.BuiltIn;
+					}
+					else
+					{
+						/*Paulo*/
+						TemplateMultiPass multipassData = templateData as TemplateMultiPass;
+						m_currentSRPType = multipassData.SubShaders[0].Modules.SRPType;
+					
+						Vector2 currentPosition = currMasterNode.Vec2Position;
+
+						for( int subShaderIdx = 0; subShaderIdx < multipassData.SubShaders.Count; subShaderIdx++ )
+						{
+							for( int passIdx = 0; passIdx < multipassData.SubShaders[ subShaderIdx ].Passes.Count; passIdx++ )
+							{
+								TemplateMultiPassMasterNode masterNode = CreateNode( typeof( TemplateMultiPassMasterNode ), false ) as TemplateMultiPassMasterNode;
+								if( multipassData.SubShaders[ subShaderIdx ].Passes[passIdx].IsMainPass )
+								{
+									newMasterNode = masterNode;
+									ParentWindow.IsShaderFunctionWindow = false;
+									CurrentCanvasMode = NodeAvailability.TemplateShader;
+								}
+								masterNode.Vec2Position = currentPosition;
+								masterNode.SetTemplate( multipassData, true, true, subShaderIdx, passIdx );
+								//currentPosition.y += masterNode.HeightEstimate + 10;
+							}
+						}
+						RefreshLinkedMasterNodes();
+					}
 				}
 				break;
 			}
 
-			MasterNode currMasterNode = GetNode( m_masterNodeId ) as MasterNode;
 			if( currMasterNode != null )
 			{
-				currMasterNode.ReleaseResources();
 				newMasterNode.CopyFrom( currMasterNode );
 				m_masterNodeId = -1;
-				DestroyNode( currMasterNode );
+				DestroyNode( currMasterNode, false, true );
+			}
+
+			if( nodesToDelete != null )
+			{
+				for( int i = 0; i < nodesToDelete.Count; i++ )
+				{
+					DestroyNode( nodesToDelete[ i ], false, true );
+				}
+				nodesToDelete.Clear();
 			}
 
 			m_masterNodeId = newMasterNode.UniqueId;
@@ -2713,6 +2952,68 @@ namespace AmplifyShaderEditor
 			newMasterNode.OnShaderUpdatedEvent += OnShaderUpdatedEvent;
 			newMasterNode.IsMainOutputNode = true;
 			return newMasterNode;
+		}
+
+		private void RepositionTemplateNodes( MasterNode newMasterNode )
+		{
+			m_forceRepositionCheck = false;
+
+			int dockedElementsBefore = 0;
+			int dockedElementsAfter = 0;
+			int masterIndex = 0;
+			bool foundMaster = false;
+			for( int i = 0; i < MultiPassMasterNodes.Count; i++ )
+			{
+				if( MultiPassMasterNodes.NodesList[ i ].UniqueId == m_masterNodeId )
+				{
+					foundMaster = true;
+					masterIndex = i;
+				}
+
+				if( MultiPassMasterNodes.NodesList[ i ].Docking )
+				{
+					if( foundMaster )
+						dockedElementsAfter++;
+					else
+						dockedElementsBefore++;
+				}
+			}
+
+			if( dockedElementsBefore > 0 )
+			{
+				newMasterNode.UseSquareNodeTitle = true;
+			}
+			
+			for( int i = masterIndex - 1; i >= 0; i-- )
+			{
+				float forwardTracking = 0;
+				for( int j = i + 1; j <= masterIndex; j++ )
+				{
+					if( !MultiPassMasterNodes.NodesList[ j ].Docking )
+					{
+						forwardTracking += MultiPassMasterNodes.NodesList[ j ].HeightEstimate + 10;
+					}
+				}
+				MasterNode node = MultiPassMasterNodes.NodesList[ i ];
+				node.Vec2Position = new Vector2( node.Vec2Position.x, newMasterNode.Position.y - forwardTracking - 33 * ( dockedElementsBefore ) );
+			}
+
+			for( int i = masterIndex + 1; i < MultiPassMasterNodes.Count; i++ )
+			{
+				if( MultiPassMasterNodes.NodesList[ i ].UniqueId == newMasterNode.UniqueId || MultiPassMasterNodes.NodesList[ i ].Docking )
+					continue;
+
+				float backTracking = 0;
+				for( int j = i - 1; j >= masterIndex; j-- )
+				{
+					if( !MultiPassMasterNodes.NodesList[ j ].Docking )
+					{
+						backTracking += MultiPassMasterNodes.NodesList[ j ].HeightEstimate + 10;
+					}
+				}
+				MasterNode node = MultiPassMasterNodes.NodesList[ i ];
+				node.Vec2Position = new Vector2( node.Vec2Position.x, newMasterNode.Position.y + backTracking + 33 * ( dockedElementsAfter ) );
+			}
 		}
 
 		public void CreateNewEmpty( string name )
@@ -2734,21 +3035,56 @@ namespace AmplifyShaderEditor
 		public void CreateNewEmptyTemplate( string templateGUID )
 		{
 			CleanNodes();
-			TemplateMasterNode newMasterNode = CreateNode( typeof( TemplateMasterNode ), false ) as TemplateMasterNode;
-			m_masterNodeId = newMasterNode.UniqueId;
+			TemplateDataParent templateData = TemplatesManager.GetTemplate( templateGUID );
+			if( templateData.TemplateType == TemplateDataType.LegacySinglePass )
+			{
+				TemplateMasterNode newMasterNode = CreateNode( typeof( TemplateMasterNode ), false ) as TemplateMasterNode;
+				m_masterNodeId = newMasterNode.UniqueId;
 
-			ParentWindow.IsShaderFunctionWindow = false;
-			CurrentCanvasMode = NodeAvailability.TemplateShader;
+				ParentWindow.IsShaderFunctionWindow = false;
+				CurrentCanvasMode = NodeAvailability.TemplateShader;
+				m_currentSRPType = TemplateSRPType.BuiltIn;
+				newMasterNode.OnMaterialUpdatedEvent += OnMaterialUpdatedEvent;
+				newMasterNode.OnShaderUpdatedEvent += OnShaderUpdatedEvent;
+				newMasterNode.IsMainOutputNode = true;
 
-			newMasterNode.OnMaterialUpdatedEvent += OnMaterialUpdatedEvent;
-			newMasterNode.OnShaderUpdatedEvent += OnShaderUpdatedEvent;
-			newMasterNode.IsMainOutputNode = true;
+				newMasterNode.SetTemplate( templateData as TemplateData, true, true );
+			}
+			else
+			{
+				/*Paulo*/
+				TemplateMultiPass multipassData = templateData as TemplateMultiPass;
+				m_currentSRPType = multipassData.SubShaders[ 0 ].Modules.SRPType;
 
-			newMasterNode.SetTemplate( TemplatesManager.GetTemplate( templateGUID ), true, true );
+				Vector2 currentPosition = Vector2.zero;
+				for( int subShaderIdx = 0; subShaderIdx < multipassData.SubShaders.Count; subShaderIdx++ )
+				{
+					for( int passIdx = 0; passIdx < multipassData.SubShaders[ subShaderIdx ].Passes.Count; passIdx++ )
+					{
+						TemplateMultiPassMasterNode newMasterNode = CreateNode( typeof( TemplateMultiPassMasterNode ), false ) as TemplateMultiPassMasterNode;
+						if( multipassData.SubShaders[ subShaderIdx ].Passes[passIdx].IsMainPass )
+						{
+							m_masterNodeId = newMasterNode.UniqueId;
+
+							ParentWindow.IsShaderFunctionWindow = false;
+							CurrentCanvasMode = NodeAvailability.TemplateShader;
+
+							newMasterNode.OnMaterialUpdatedEvent += OnMaterialUpdatedEvent;
+							newMasterNode.OnShaderUpdatedEvent += OnShaderUpdatedEvent;
+							newMasterNode.IsMainOutputNode = true;
+						}
+						newMasterNode.Vec2Position = currentPosition;
+						newMasterNode.SetTemplate( multipassData, true, true, subShaderIdx, passIdx );
+				
+						//currentPosition.y += newMasterNode.HeightEstimate + 10;
+					}
+				}
+				RefreshLinkedMasterNodes();
+			}
 
 			LoadedShaderVersion = UIUtils.CurrentVersion();
 		}
-
+	
 		public void CreateNewEmptyFunction( AmplifyShaderFunction shaderFunction )
 		{
 			CleanNodes();
@@ -2891,7 +3227,7 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public NodeAvailability CurrentCanvasMode { get { return m_currentCanvasMode; } set { m_currentCanvasMode = value; } }
+		public NodeAvailability CurrentCanvasMode { get { return m_currentCanvasMode; } set { m_currentCanvasMode = value; ParentWindow.LateRefreshAvailableNodes(); } }
 		public OutputNode CurrentOutputNode { get { return GetNode( m_masterNodeId ) as OutputNode; } }
 		public FunctionOutput CurrentFunctionOutput { get { return GetNode( m_masterNodeId ) as FunctionOutput; } }
 		public MasterNode CurrentMasterNode { get { return GetNode( m_masterNodeId ) as MasterNode; } }
@@ -2936,6 +3272,7 @@ namespace AmplifyShaderEditor
 
 		public bool HasUnConnectedNodes { get { return m_hasUnConnectedNodes; } }
 		public UsageListSamplerNodes SamplerNodes { get { return m_samplerNodes; } }
+		public UsageListFloatIntNodes FloatIntNodes { get { return m_floatNodes; } }
 		public UsageListTexturePropertyNodes TexturePropertyNodes { get { return m_texturePropertyNodes; } }
 		public UsageListTextureArrayNodes TextureArrayNodes { get { return m_textureArrayNodes; } }
 		public UsageListPropertyNodes PropertyNodes { get { return m_propertyNodes; } }
@@ -2946,6 +3283,8 @@ namespace AmplifyShaderEditor
 		public UsageListFunctionOutputNodes FunctionOutputNodes { get { return m_functionOutputNodes; } }
 		public UsageListFunctionSwitchNodes FunctionSwitchNodes { get { return m_functionSwitchNodes; } }
 		public UsageListFunctionSwitchCopyNodes FunctionSwitchCopyNodes { get { return m_functionSwitchCopyNodes; } }
+		public UsageListTemplateMultiPassMasterNodes MultiPassMasterNodes { get { return m_multiPassMasterNodes; } }
+
 		public PrecisionType CurrentPrecision
 		{
 			get { return m_currentPrecision; }
@@ -2981,5 +3320,13 @@ namespace AmplifyShaderEditor
 			get { return m_changedLightingModel; }
 			set { m_changedLightingModel = value; }
 		}
+
+		public bool ForceRepositionCheck
+		{
+			get { return m_forceRepositionCheck; }
+			set { m_forceRepositionCheck = value; }
+		}
+
+		public TemplateSRPType CurrentSRPType { get { return m_currentSRPType; } }
 	}
 }

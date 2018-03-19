@@ -81,93 +81,113 @@ namespace AmplifyShaderEditor
         {
             for( int i = 0; i < StencilBufferOpHelper.StencilComparisonValues.Length; i++ )
             {
-                m_comparisonDict.Add( StencilBufferOpHelper.StencilComparisonValues[ i ], i );
+                m_comparisonDict.Add( StencilBufferOpHelper.StencilComparisonValues[ i ].ToLower(), i );
             }
 
             for( int i = 0; i < StencilBufferOpHelper.StencilOpsValues.Length; i++ )
             {
-                m_stencilOpsDict.Add( StencilBufferOpHelper.StencilOpsValues[ i ], i );
+                m_stencilOpsDict.Add( StencilBufferOpHelper.StencilOpsValues[ i ].ToLower(), i );
             }
         }
+
+		public void CopyFrom( TemplatesStencilBufferModule other )
+		{
+			m_reference = other.Reference;
+			m_readMask = other.ReadMask;
+			m_writeMask = other.WriteMask;
+			m_comparisonFunctionIdx = other.ComparisonFunctionIdx;
+			m_comparisonFunctionBackIdx = other.ComparisonFunctionBackIdx;
+			m_passStencilOpIdx = other.PassStencilOpIdx;
+			m_passStencilOpBackIdx = other.PassStencilOpBackIdx;
+			m_failStencilOpIdx = other.FailStencilOpIdx;
+			m_failStencilOpBackIdx = other.FailStencilOpBackIdx;
+			m_zFailStencilOpIdx = other.ZFailStencilOpIdx;
+			m_zFailStencilOpBackIdx = other.ZFailStencilOpBackIdx;
+		}
 
         public void ConfigureFromTemplateData( TemplateStencilData stencilData )
         {
-            m_reference = stencilData.Reference;
-            m_readMask = stencilData.ReadMask;
-            m_writeMask = stencilData.WriteMask;
+			bool newValidData = ( stencilData.DataCheck == TemplateDataCheck.Valid );
+			if( newValidData && m_validData != newValidData )
+			{
+				m_reference = stencilData.Reference;
+				m_readMask = stencilData.ReadMask;
+				m_writeMask = stencilData.WriteMask;
 
-            if( !string.IsNullOrEmpty( stencilData.ComparisonFront ) )
-            {
-                m_comparisonFunctionIdx = m_comparisonDict[ stencilData.ComparisonFront ];
-            }
-            else
-            {
-                m_comparisonFunctionIdx = m_comparisonDict[ "Always" ];
-            }
+				if( !string.IsNullOrEmpty( stencilData.ComparisonFront ) )
+				{
+					m_comparisonFunctionIdx = m_comparisonDict[ stencilData.ComparisonFront.ToLower() ];
+				}
+				else
+				{
+					m_comparisonFunctionIdx = m_comparisonDict[ "always" ];
+				}
 
-            if( !string.IsNullOrEmpty( stencilData.PassFront ) )
-            {
-                m_passStencilOpIdx = m_stencilOpsDict[ stencilData.PassFront ];
-            }
-            else
-            {
-                m_passStencilOpIdx = m_stencilOpsDict[ "Keep" ];
-            }
+				if( !string.IsNullOrEmpty( stencilData.PassFront ) )
+				{
+					m_passStencilOpIdx = m_stencilOpsDict[ stencilData.PassFront.ToLower() ];
+				}
+				else
+				{
+					m_passStencilOpIdx = m_stencilOpsDict[ "keep" ];
+				}
 
-            if( !string.IsNullOrEmpty( stencilData.FailFront ) )
-            {
-                m_failStencilOpIdx = m_stencilOpsDict[ stencilData.FailFront ];
-            }
-            else
-            {
-                m_failStencilOpIdx = m_stencilOpsDict[ "Keep" ];
-            }
+				if( !string.IsNullOrEmpty( stencilData.FailFront ) )
+				{
+					m_failStencilOpIdx = m_stencilOpsDict[ stencilData.FailFront.ToLower() ];
+				}
+				else
+				{
+					m_failStencilOpIdx = m_stencilOpsDict[ "keep" ];
+				}
 
-            if( !string.IsNullOrEmpty( stencilData.ZFailFront ) )
-            {
-                m_zFailStencilOpIdx = m_stencilOpsDict[ stencilData.ZFailFront ];
-            }
-            else
-            {
-                m_zFailStencilOpIdx = m_stencilOpsDict[ "Keep" ];
-            }
+				if( !string.IsNullOrEmpty( stencilData.ZFailFront ) )
+				{
+					m_zFailStencilOpIdx = m_stencilOpsDict[ stencilData.ZFailFront.ToLower() ];
+				}
+				else
+				{
+					m_zFailStencilOpIdx = m_stencilOpsDict[ "keep" ];
+				}
 
-            if( !string.IsNullOrEmpty( stencilData.ComparisonBack ) )
-            {
-                m_comparisonFunctionBackIdx = m_comparisonDict[ stencilData.ComparisonBack ];
-            }
-            else
-            {
-                m_comparisonFunctionBackIdx = m_comparisonDict[ "Always" ];
-            }
+				if( !string.IsNullOrEmpty( stencilData.ComparisonBack ) )
+				{
+					m_comparisonFunctionBackIdx = m_comparisonDict[ stencilData.ComparisonBack.ToLower() ];
+				}
+				else
+				{
+					m_comparisonFunctionBackIdx = m_comparisonDict[ "always" ];
+				}
 
-            if( !string.IsNullOrEmpty( stencilData.PassBack ) )
-            {
-                m_passStencilOpBackIdx = m_stencilOpsDict[ stencilData.PassBack ];
-            }
-            else
-            {
-                m_passStencilOpBackIdx = m_stencilOpsDict[ "Keep" ];
-            }
+				if( !string.IsNullOrEmpty( stencilData.PassBack ) )
+				{
+					m_passStencilOpBackIdx = m_stencilOpsDict[ stencilData.PassBack.ToLower() ];
+				}
+				else
+				{
+					m_passStencilOpBackIdx = m_stencilOpsDict[ "keep" ];
+				}
 
-            if( !string.IsNullOrEmpty( stencilData.FailBack ) )
-            {
-                m_failStencilOpBackIdx = m_stencilOpsDict[ stencilData.FailBack ];
-            }
-            else
-            {
-                m_failStencilOpBackIdx = m_stencilOpsDict[ "Keep" ];
-            }
+				if( !string.IsNullOrEmpty( stencilData.FailBack ) )
+				{
+					m_failStencilOpBackIdx = m_stencilOpsDict[ stencilData.FailBack.ToLower() ];
+				}
+				else
+				{
+					m_failStencilOpBackIdx = m_stencilOpsDict[ "keep" ];
+				}
 
-            if( !string.IsNullOrEmpty( stencilData.ZFailBack ) )
-            {
-                m_zFailStencilOpBackIdx = m_stencilOpsDict[ stencilData.ZFailBack ];
-            }
-            else
-            {
-                m_zFailStencilOpBackIdx = m_stencilOpsDict[ "Keep" ];
-            }
-        }
+				if( !string.IsNullOrEmpty( stencilData.ZFailBack ) )
+				{
+					m_zFailStencilOpBackIdx = m_stencilOpsDict[ stencilData.ZFailBack.ToLower() ];
+				}
+				else
+				{
+					m_zFailStencilOpBackIdx = m_stencilOpsDict[ "keep" ];
+				}
+			}
+			m_validData = newValidData;
+		}
 
         public string CreateStencilOp( CullMode cullMode )
         {
@@ -225,71 +245,101 @@ namespace AmplifyShaderEditor
 
         public override void ShowUnreadableDataMessage()
         {
-            bool foldoutValue = EditorVariablesManager.ExpandedStencilOptions.Value;
-            NodeUtils.DrawPropertyGroup( ref foldoutValue, FoldoutLabelStr, base.ShowUnreadableDataMessage );
-            EditorVariablesManager.ExpandedStencilOptions.Value = foldoutValue;
+            NodeUtils.DrawPropertyGroup( ref m_foldoutValue, FoldoutLabelStr, base.ShowUnreadableDataMessage );
         }
 
-        public void Draw( UndoParentNode owner, CullMode cullMode )
+        public void Draw( UndoParentNode owner, CullMode cullMode , bool style = true )
         {
-            bool foldoutValue = EditorVariablesManager.ExpandedStencilOptions.Value;
-            NodeUtils.DrawPropertyGroup( ref foldoutValue, FoldoutLabelStr, () =>
-            {
-                m_reference = owner.EditorGUILayoutIntSlider( ReferenceValueContent, m_reference, 0, 255 );
-                m_readMask = owner.EditorGUILayoutIntSlider( ReadMaskContent, m_readMask, 0, 255 );
-                m_writeMask = owner.EditorGUILayoutIntSlider( WriteMaskContent, m_writeMask, 0, 255 );
-                if( cullMode == CullMode.Off )
-                {
-                    m_comparisonFunctionIdx = owner.EditorGUILayoutPopup( ComparisonFrontStr, m_comparisonFunctionIdx, StencilBufferOpHelper.StencilComparisonLabels );
-                    m_passStencilOpIdx = owner.EditorGUILayoutPopup( PassFrontStr, m_passStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
-                    m_failStencilOpIdx = owner.EditorGUILayoutPopup( FailFrontStr, m_failStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
-                    m_zFailStencilOpIdx = owner.EditorGUILayoutPopup( ZFailFrontStr, m_zFailStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
-                    EditorGUILayout.Separator();
-                    m_comparisonFunctionBackIdx = owner.EditorGUILayoutPopup( ComparisonBackStr, m_comparisonFunctionBackIdx, StencilBufferOpHelper.StencilComparisonLabels );
-                    m_passStencilOpBackIdx = owner.EditorGUILayoutPopup( PassBackStr, m_passStencilOpBackIdx, StencilBufferOpHelper.StencilOpsLabels );
-                    m_failStencilOpBackIdx = owner.EditorGUILayoutPopup( FailBackStr, m_failStencilOpBackIdx, StencilBufferOpHelper.StencilOpsLabels );
-                    m_zFailStencilOpBackIdx = owner.EditorGUILayoutPopup( ZFailBackStr, m_zFailStencilOpBackIdx, StencilBufferOpHelper.StencilOpsLabels );
-                }
-                else
-                {
-                    m_comparisonFunctionIdx = owner.EditorGUILayoutPopup( ComparisonStr, m_comparisonFunctionIdx, StencilBufferOpHelper.StencilComparisonLabels );
-                    m_passStencilOpIdx = owner.EditorGUILayoutPopup( PassStr, m_passStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
-                    m_failStencilOpIdx = owner.EditorGUILayoutPopup( FailStr, m_failStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
-                    m_zFailStencilOpIdx = owner.EditorGUILayoutPopup( ZFailStr, m_zFailStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
-                }
-            } );
-            EditorVariablesManager.ExpandedStencilOptions.Value = foldoutValue;
+			if( style )
+			{
+				NodeUtils.DrawPropertyGroup( ref m_foldoutValue, FoldoutLabelStr, () =>
+				{
+					DrawBlock( owner, cullMode );
+				} );
+			}
+			else
+			{
+				NodeUtils.DrawNestedPropertyGroup( ref m_foldoutValue, FoldoutLabelStr, () =>
+				{
+					DrawBlock( owner, cullMode );
+				} );
+			}
         }
 
+		void DrawBlock( UndoParentNode owner, CullMode cullMode )
+		{
+			EditorGUI.BeginChangeCheck();
+			{
+				m_reference = owner.EditorGUILayoutIntSlider( ReferenceValueContent, m_reference, 0, 255 );
+				m_readMask = owner.EditorGUILayoutIntSlider( ReadMaskContent, m_readMask, 0, 255 );
+				m_writeMask = owner.EditorGUILayoutIntSlider( WriteMaskContent, m_writeMask, 0, 255 );
+				if( cullMode == CullMode.Off )
+				{
+					m_comparisonFunctionIdx = owner.EditorGUILayoutPopup( ComparisonFrontStr, m_comparisonFunctionIdx, StencilBufferOpHelper.StencilComparisonLabels );
+					m_passStencilOpIdx = owner.EditorGUILayoutPopup( PassFrontStr, m_passStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
+					m_failStencilOpIdx = owner.EditorGUILayoutPopup( FailFrontStr, m_failStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
+					m_zFailStencilOpIdx = owner.EditorGUILayoutPopup( ZFailFrontStr, m_zFailStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
+					EditorGUILayout.Separator();
+					m_comparisonFunctionBackIdx = owner.EditorGUILayoutPopup( ComparisonBackStr, m_comparisonFunctionBackIdx, StencilBufferOpHelper.StencilComparisonLabels );
+					m_passStencilOpBackIdx = owner.EditorGUILayoutPopup( PassBackStr, m_passStencilOpBackIdx, StencilBufferOpHelper.StencilOpsLabels );
+					m_failStencilOpBackIdx = owner.EditorGUILayoutPopup( FailBackStr, m_failStencilOpBackIdx, StencilBufferOpHelper.StencilOpsLabels );
+					m_zFailStencilOpBackIdx = owner.EditorGUILayoutPopup( ZFailBackStr, m_zFailStencilOpBackIdx, StencilBufferOpHelper.StencilOpsLabels );
+				}
+				else
+				{
+					m_comparisonFunctionIdx = owner.EditorGUILayoutPopup( ComparisonStr, m_comparisonFunctionIdx, StencilBufferOpHelper.StencilComparisonLabels );
+					m_passStencilOpIdx = owner.EditorGUILayoutPopup( PassStr, m_passStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
+					m_failStencilOpIdx = owner.EditorGUILayoutPopup( FailStr, m_failStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
+					m_zFailStencilOpIdx = owner.EditorGUILayoutPopup( ZFailStr, m_zFailStencilOpIdx, StencilBufferOpHelper.StencilOpsLabels );
+				}
+			}
+			if( EditorGUI.EndChangeCheck() )
+			{
+				m_isDirty = true;
+			}
+		}
 
         public override void ReadFromString( ref uint index, ref string[] nodeParams )
         {
-            m_reference = Convert.ToInt32( nodeParams[ index++ ] );
-            m_readMask = Convert.ToInt32( nodeParams[ index++ ] );
-            m_writeMask = Convert.ToInt32( nodeParams[ index++ ] );
-            m_comparisonFunctionIdx = Convert.ToInt32( nodeParams[ index++ ] );
-            m_passStencilOpIdx = Convert.ToInt32( nodeParams[ index++ ] );
-            m_failStencilOpIdx = Convert.ToInt32( nodeParams[ index++ ] );
-            m_zFailStencilOpIdx = Convert.ToInt32( nodeParams[ index++ ] );
-            m_comparisonFunctionBackIdx = Convert.ToInt32( nodeParams[ index++ ] );
-            m_passStencilOpBackIdx = Convert.ToInt32( nodeParams[ index++ ] );
-            m_failStencilOpBackIdx = Convert.ToInt32( nodeParams[ index++ ] );
-            m_zFailStencilOpBackIdx = Convert.ToInt32( nodeParams[ index++ ] );
+			bool validDataOnMeta = m_validData;
+			if( UIUtils.CurrentShaderVersion() > TemplatesManager.MPShaderVersion )
+			{
+				validDataOnMeta = Convert.ToBoolean( nodeParams[ index++ ] );
+			}
+
+			if( validDataOnMeta )
+			{
+				m_reference = Convert.ToInt32( nodeParams[ index++ ] );
+				m_readMask = Convert.ToInt32( nodeParams[ index++ ] );
+				m_writeMask = Convert.ToInt32( nodeParams[ index++ ] );
+				m_comparisonFunctionIdx = Convert.ToInt32( nodeParams[ index++ ] );
+				m_passStencilOpIdx = Convert.ToInt32( nodeParams[ index++ ] );
+				m_failStencilOpIdx = Convert.ToInt32( nodeParams[ index++ ] );
+				m_zFailStencilOpIdx = Convert.ToInt32( nodeParams[ index++ ] );
+				m_comparisonFunctionBackIdx = Convert.ToInt32( nodeParams[ index++ ] );
+				m_passStencilOpBackIdx = Convert.ToInt32( nodeParams[ index++ ] );
+				m_failStencilOpBackIdx = Convert.ToInt32( nodeParams[ index++ ] );
+				m_zFailStencilOpBackIdx = Convert.ToInt32( nodeParams[ index++ ] );
+			}
         }
 
         public override void WriteToString( ref string nodeInfo )
         {
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_reference );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_readMask );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_writeMask );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_comparisonFunctionIdx );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_passStencilOpIdx );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_failStencilOpIdx );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_zFailStencilOpIdx );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_comparisonFunctionBackIdx );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_passStencilOpBackIdx );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_failStencilOpBackIdx );
-            IOUtils.AddFieldValueToString( ref nodeInfo, m_zFailStencilOpBackIdx );
+			IOUtils.AddFieldValueToString( ref nodeInfo, m_validData );
+			if( m_validData )
+			{
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_reference );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_readMask );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_writeMask );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_comparisonFunctionIdx );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_passStencilOpIdx );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_failStencilOpIdx );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_zFailStencilOpIdx );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_comparisonFunctionBackIdx );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_passStencilOpBackIdx );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_failStencilOpBackIdx );
+				IOUtils.AddFieldValueToString( ref nodeInfo, m_zFailStencilOpBackIdx );
+			}
         }
 
         public override void Destroy()
@@ -301,5 +351,17 @@ namespace AmplifyShaderEditor
             m_stencilOpsDict = null;
         }
 
-    }
+		public int Reference { get { return m_reference; } }
+		public int ReadMask { get { return m_readMask; } }
+		public int WriteMask { get { return m_writeMask; } }
+		public int ComparisonFunctionIdx { get { return m_comparisonFunctionIdx; } }
+		public int ComparisonFunctionBackIdx { get { return m_comparisonFunctionBackIdx; } }
+		public int PassStencilOpIdx { get { return m_passStencilOpIdx; } }
+		public int PassStencilOpBackIdx { get { return m_passStencilOpBackIdx; } }
+		public int FailStencilOpIdx { get { return m_failStencilOpIdx; } }
+		public int FailStencilOpBackIdx { get { return m_failStencilOpBackIdx; } }
+		public int ZFailStencilOpIdx { get { return m_zFailStencilOpIdx; } }
+		public int ZFailStencilOpBackIdx { get { return m_zFailStencilOpBackIdx; } }
+
+	}
 }

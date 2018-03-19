@@ -1,7 +1,9 @@
 // Amplify Shader Editor - Visual Shader Editing Tool
 // Copyright (c) Amplify Creations, Lda <info@amplify.pt>
-#define SHOW_TEMPLATE_HELP_BOX
 
+// THIS FILE IS DEPRECATED AND SHOULD NOT BE USED
+
+#define SHOW_TEMPLATE_HELP_BOX
 
 using System;
 using System.Collections.Generic;
@@ -11,7 +13,7 @@ using UnityEditor;
 namespace AmplifyShaderEditor
 {
     [Serializable]
-    [NodeAttributes( "Template Master Node", "Master", "Shader Generated according to template rules", null, KeyCode.None, false )]
+    [NodeAttributes( "Template Master Node", "Master", "Shader Generated according to template rules", null, KeyCode.None, false,true,null,typeof(TemplateMultiPassMasterNode) )]
     public sealed class TemplateMasterNode : MasterNode
     {
         private const string WarningMessage = "Templates is a feature that is still heavily under development and users may experience some problems.\nPlease email support@amplify.pt if any issue occurs.";
@@ -52,8 +54,7 @@ namespace AmplifyShaderEditor
 
 		[SerializeField]
 		private TemplateTagsModule m_tagsHelper = new TemplateTagsModule();
-
-
+		
         protected override void CommonInit( int uniqueId )
         {
             base.CommonInit( uniqueId );
@@ -104,10 +105,10 @@ namespace AmplifyShaderEditor
 
         void FetchCurrentTemplate()
         {
-            m_currentTemplate = TemplatesManager.GetTemplate( m_templateGUID );
+            m_currentTemplate = TemplatesManager.GetTemplate( m_templateGUID ) as TemplateData;
             if( m_currentTemplate == null )
             {
-                m_currentTemplate = TemplatesManager.GetTemplate( m_templateName );
+                m_currentTemplate = TemplatesManager.GetTemplate( m_templateName ) as TemplateData;
             }
 
             if( m_currentTemplate != null )
@@ -154,7 +155,7 @@ namespace AmplifyShaderEditor
             for( int i = 0; i < templateCount; i++ )
             {
                 int idx = i + 1;
-                TemplateData templateData = TemplatesManager.GetTemplate( i );
+                TemplateData templateData = TemplatesManager.GetTemplate( i ) as TemplateData;
 
                 if( m_currentTemplate != null && m_currentTemplate.GUID.Equals( templateData.GUID ) )
                     m_masterNodeCategory = idx;
@@ -170,7 +171,7 @@ namespace AmplifyShaderEditor
             for( int i = 0; i < templateCount; i++ )
             {
                 int idx = i + 1;
-                TemplateData templateData = TemplatesManager.GetTemplate( i );
+                TemplateData templateData = TemplatesManager.GetTemplate( i ) as TemplateData;
                 if( templateData != null && m_currentTemplate != null && m_currentTemplate.GUID.Equals( templateData.GUID ) )
                     m_masterNodeCategory = idx;
             }
@@ -603,14 +604,14 @@ namespace AmplifyShaderEditor
                     templateShaderName = GetCurrentParam( ref nodeParams );
                 }
 
-                TemplateData template = TemplatesManager.GetTemplate( templateGUID );
+                TemplateData template = TemplatesManager.GetTemplate( templateGUID ) as TemplateData; 
                 if( template != null )
                 {
                     SetTemplate( template, false, true );
                 }
                 else
                 {
-                    template = TemplatesManager.GetTemplateByName( templateShaderName );
+                    template = TemplatesManager.GetTemplateByName( templateShaderName ) as TemplateData;
                     if( template != null )
                     {
                         SetTemplate( template, false, true );

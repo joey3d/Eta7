@@ -575,10 +575,13 @@ namespace AmplifyShaderEditor
 			ParentGraph cachedGraph = ContainerGraph.ParentWindow.CustomGraph;
 			ContainerGraph.ParentWindow.CustomGraph = m_functionGraph;
 
-			int nodeCount = m_functionGraph.AllNodes.Count;
-			for( int i = 0; i < nodeCount; i++ )
+			if( m_functionGraph != null )
 			{
-				m_functionGraph.AllNodes[ i ].OnNodeLogicUpdate( drawInfo );
+				int nodeCount = m_functionGraph.AllNodes.Count;
+				for( int i = 0; i < nodeCount; i++ )
+				{
+					m_functionGraph.AllNodes[ i ].OnNodeLogicUpdate( drawInfo );
+				}
 			}
 
 			ContainerGraph.ParentWindow.CustomGraph = cachedGraph;

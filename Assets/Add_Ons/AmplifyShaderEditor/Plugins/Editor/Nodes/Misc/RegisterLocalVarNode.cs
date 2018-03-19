@@ -83,29 +83,41 @@ namespace AmplifyShaderEditor
 			m_variableName = EditorGUILayoutTextField( LocalVarNameStr, m_variableName );
 			if( EditorGUI.EndChangeCheck() )
 			{
-
-				m_variableName = UIUtils.RemoveInvalidCharacters( m_variableName );
-				if( string.IsNullOrEmpty( m_variableName ) )
-				{
-					m_variableName = LocalDefaultNameStr + OutputId;
-				}
-
-				if( UIUtils.IsLocalvariableNameAvailable( m_variableName ) )
-				{
-					UIUtils.ReleaseLocalVariableName( UniqueId, m_oldName );
-					UIUtils.RegisterLocalVariableName( UniqueId, m_variableName );
-					m_oldName = m_variableName;
-					UIUtils.UpdateLocalVarDataNode( UniqueId, m_variableName );
-					UpdateTitle();
-					m_forceUpdate = true;
-				}
-				else
-				{
-					m_variableName = m_oldName;
-				}
+				CheckAndChangeName();
 			}
 
 			DrawPrecisionProperty();
+		}
+
+		public override void AfterDuplication( ParentNode original )
+		{
+			base.AfterDuplication( original );
+
+			CheckAndChangeName();
+		}
+
+		void CheckAndChangeName()
+		{
+			m_variableName = UIUtils.RemoveInvalidCharacters( m_variableName );
+			if( string.IsNullOrEmpty( m_variableName ) )
+			{
+				m_variableName = LocalDefaultNameStr + OutputId;
+			}
+
+			if( UIUtils.IsLocalvariableNameAvailable( m_variableName ) )
+			{
+				UIUtils.ReleaseLocalVariableName( UniqueId, m_oldName );
+				UIUtils.RegisterLocalVariableName( UniqueId, m_variableName );
+				m_oldName = m_variableName;
+				UIUtils.UpdateLocalVarDataNode( UniqueId, m_variableName );
+				UpdateTitle();
+				m_forceUpdate = true;
+			}
+			else
+			{
+				m_variableName = m_oldName;
+				UIUtils.UpdateLocalVarDataNode( UniqueId, m_variableName );
+			}
 		}
 
 		void DrawReferences()

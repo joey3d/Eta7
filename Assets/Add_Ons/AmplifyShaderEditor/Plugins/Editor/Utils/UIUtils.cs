@@ -88,7 +88,10 @@ namespace AmplifyShaderEditor
 		FlatBackground,
 		DocumentationLink,
 		GraphButtonIcon,
-		GraphButton
+		GraphButton,
+		NodeWindowOffSquare,
+		NodeHeaderSquare,
+		NodeWindowOnSquare
 	}
 
 	public enum MasterNodePortCategory
@@ -216,6 +219,7 @@ namespace AmplifyShaderEditor
 		public static GUIStyle ObjectFieldThumb;
 		public static GUIStyle ObjectFieldThumbOverlay;
 		public static GUIStyle InspectorPopdropdownStyle;
+		public static GUIStyle InspectorPopdropdownFallback;
 		public static GUIStyle BoldErrorStyle;
 		public static GUIStyle BoldWarningStyle;
 		public static GUIStyle BoldInfoStyle;
@@ -228,6 +232,10 @@ namespace AmplifyShaderEditor
 
 		public static GUIStyle MiniObjectFieldThumbOverlay;
 		public static GUIStyle MiniSamplerButton;
+
+		public static GUIStyle NodeWindowOffSquare;
+		public static GUIStyle NodeHeaderSquare;
+		public static GUIStyle NodeWindowOnSquare;
 
 		public static GUIStyle GraphButtonIcon;
 		public static GUIStyle GraphButton;
@@ -255,6 +263,8 @@ namespace AmplifyShaderEditor
 		public static GUIStyle MenuItemToolbarStyle;
 		public static GUIStyle MenuItemInspectorDropdownStyle;
 
+		public static GUIStyle FloatIntPickerONOFF;
+
 		public static bool UsingProSkin = false;
 
 		public static Texture ShaderIcon { get { return EditorGUIUtility.IconContent( "Shader Icon" ).image; } }
@@ -281,6 +291,9 @@ namespace AmplifyShaderEditor
 
 		public static GUIContent LockIconOpen = null;
 		public static GUIContent LockIconClosed = null;
+
+		public static GUIContent FloatIntIconON = null;
+		public static GUIContent FloatIntIconOFF = null;
 
 		public static bool ShowContextOnPick = true;
 
@@ -311,6 +324,14 @@ namespace AmplifyShaderEditor
 		public static Vector2 PortsSize;
 		public static Vector3 PortsDelta;
 		public static Vector3 ScaledPortsDelta;
+
+		public static RectOffset RectOffsetZero;
+		public static RectOffset RectOffsetOne;
+		public static RectOffset RectOffsetTwo;
+		public static RectOffset RectOffsetThree;
+		public static RectOffset RectOffsetFour;
+		public static RectOffset RectOffsetFive;
+		public static RectOffset RectOffsetSix;
 
 		public static Material LinearMaterial = null;
 		public static Shader IntShader = null;
@@ -618,6 +639,13 @@ namespace AmplifyShaderEditor
 			{WireStatus.Selected,Color.white}
 		};
 
+		private static Dictionary<WirePortDataType, string> m_autoSwizzle = new Dictionary<WirePortDataType, string>()
+		{
+			{WirePortDataType.FLOAT,    ".x"},
+			{WirePortDataType.FLOAT2,   ".xy"},
+			{WirePortDataType.FLOAT3,   ".xyz"},
+			{WirePortDataType.FLOAT4,   ".xyzw"}
+		};
 
 		private static Dictionary<string, bool> m_unityNativeShaderPaths = new Dictionary<string, bool>
 		{
@@ -688,6 +716,7 @@ namespace AmplifyShaderEditor
 			ObjectFieldThumb = null;
 			ObjectFieldThumbOverlay = null;
 			InspectorPopdropdownStyle = null;
+			InspectorPopdropdownFallback = null;
 			TooltipBox = null;
 			UnZoomedNodeTitleStyle = null;
 			UnZoomedPropertyValuesTitleStyle = null;
@@ -695,6 +724,7 @@ namespace AmplifyShaderEditor
 			UnZoomedOutputPortPortStyle = null;
 			ToolbarSearchTextfield = null;
 			ToolbarSearchCancelButton = null;
+			FloatIntPickerONOFF = null;
 			Box = null;
 			Button = null;
 			TextArea = null;
@@ -725,6 +755,10 @@ namespace AmplifyShaderEditor
 			MiniButtonTopMid = null;
 			MiniButtonTopRight = null;
 
+			NodeWindowOffSquare = null;
+			NodeHeaderSquare = null;
+			NodeWindowOnSquare = null;
+
 			MiniObjectFieldThumbOverlay = null;
 			MiniSamplerButton = null;
 
@@ -739,6 +773,9 @@ namespace AmplifyShaderEditor
 
 			LockIconOpen = null;
 			LockIconClosed = null;
+
+			FloatIntIconON = null;
+			FloatIntIconOFF = null;
 
 			Resources.UnloadAsset( CheckmarkIcon );
 			CheckmarkIcon = null;
@@ -797,6 +834,14 @@ namespace AmplifyShaderEditor
 			PortsDelta = new Vector3( 0.5f * PortsSize.x, 0.5f * PortsSize.y );
 			HeaderMaxHeight = MainSkin.customStyles[ (int)CustomStyle.NodeHeader ].normal.background.height;
 
+			RectOffsetZero = new RectOffset( 0, 0, 0, 0 );
+			RectOffsetOne = new RectOffset( 1, 1, 1, 1 );
+			RectOffsetTwo = new RectOffset( 2, 2, 2, 2 );
+			RectOffsetThree = new RectOffset( 3, 3, 3, 3 );
+			RectOffsetFour = new RectOffset( 4, 4, 4, 4 );
+			RectOffsetFive = new RectOffset( 5, 5, 5, 5 );
+			RectOffsetSix = new RectOffset( 6, 6, 6, 6 );
+
 			PropertyPopUp = GetCustomStyle( CustomStyle.NodePropertyPicker );
 			ObjectField = new GUIStyle( (GUIStyle)"ObjectField" );
 			PreviewExpander = GetCustomStyle( CustomStyle.NodePreviewExpander );
@@ -808,11 +853,16 @@ namespace AmplifyShaderEditor
 			SmallErrorIcon = EditorGUIUtility.Load( "icons/d_console.erroricon.sml.png" ) as Texture2D;
 			SmallWarningIcon = EditorGUIUtility.Load( "icons/d_console.warnicon.sml.png" ) as Texture2D;
 			SmallInfoIcon = EditorGUIUtility.Load( "icons/d_console.infoicon.sml.png" ) as Texture2D;
-
+			
 			LockIconOpen = new GUIContent( EditorGUIUtility.IconContent( "LockIcon-On" ) );
 			LockIconOpen.tooltip = "Click to unlock and customize the variable name";
 			LockIconClosed = new GUIContent( EditorGUIUtility.IconContent( "LockIcon" ) );
 			LockIconClosed.tooltip = "Click to lock and auto-generate the variable name";
+
+			FloatIntIconON = new GUIContent( EditorGUIUtility.IconContent( "CircularToggle_ON" ) );
+			//FloatIntIconON.tooltip = "Click to unlock and customize the variable name";
+			FloatIntIconOFF = new GUIContent( EditorGUIUtility.IconContent( "CircularToggle_OFF" ) );
+			//FloatIntIconOFF.tooltip = "Click to lock and auto-generate the variable name";
 
 			CheckmarkIcon = AssetDatabase.LoadAssetAtPath( AssetDatabase.GUIDToAssetPath( "e9c4642eaa083a54ab91406d8449e6ac" ), typeof( Texture2D ) ) as Texture2D;
 			PopupIcon = AssetDatabase.LoadAssetAtPath( AssetDatabase.GUIDToAssetPath( "d2384a227b4ac4943b73c8151393e502" ), typeof( Texture2D ) ) as Texture2D;
@@ -866,6 +916,10 @@ namespace AmplifyShaderEditor
 			//ShaderIcon = EditorGUIUtility.IconContent( "Shader Icon" ).image;
 			//MaterialIcon = EditorGUIUtility.IconContent( "Material Icon" ).image;
 
+			NodeWindowOffSquare = GetCustomStyle( CustomStyle.NodeWindowOffSquare );
+			NodeHeaderSquare = GetCustomStyle( CustomStyle.NodeHeaderSquare );
+			NodeWindowOnSquare = GetCustomStyle( CustomStyle.NodeWindowOnSquare );
+
 			UnZoomedNodeTitleStyle = new GUIStyle( GetCustomStyle( CustomStyle.NodeTitle ) );
 			UnZoomedNodeTitleStyle.fontSize = 13;
 
@@ -881,6 +935,9 @@ namespace AmplifyShaderEditor
 			ObjectFieldThumb = new GUIStyle( (GUIStyle)"ObjectFieldThumb" );
 			ObjectFieldThumbOverlay = new GUIStyle( (GUIStyle)"ObjectFieldThumbOverlay" );
 
+			FloatIntPickerONOFF = new GUIStyle( "metimelabel" );
+			FloatIntPickerONOFF.padding.left = -2;
+			FloatIntPickerONOFF.margin = new RectOffset(0,2,2,2);
 
 			TooltipBox = new GUIStyle( (GUIStyle)"Tooltip" );
 			TooltipBox.richText = true;
@@ -940,6 +997,9 @@ namespace AmplifyShaderEditor
 			InspectorPopdropdownStyle = new GUIStyle( GUI.skin.GetStyle( "PopupCurveDropdown" ) );
 			InspectorPopdropdownStyle.alignment = TextAnchor.MiddleRight;
 			InspectorPopdropdownStyle.border.bottom = 16;
+
+			InspectorPopdropdownFallback = new GUIStyle( InspectorPopdropdownStyle );
+			InspectorPopdropdownFallback.overflow = new RectOffset( 0, -5, 0, 0 );
 
 			PlusStyle = ( EditorGUIUtility.isProSkin ) ? new GUIStyle( GetCustomStyle( CustomStyle.CustomExpressionAddItem ) ) : new GUIStyle( (GUIStyle)"OL Plus" );
 			PlusStyle.imagePosition = ImagePosition.ImageOnly;
@@ -1030,6 +1090,11 @@ namespace AmplifyShaderEditor
 
 			MiniObjectFieldThumbOverlay.fontSize = (int)( 7 * drawInfo.InvertedZoom );
 			MiniSamplerButton.fontSize = (int)( 8 * drawInfo.InvertedZoom );
+
+			NodeWindowOffSquare = GetCustomStyle( CustomStyle.NodeWindowOffSquare );
+			NodeHeaderSquare = GetCustomStyle( CustomStyle.NodeHeaderSquare );
+			NodeWindowOnSquare = GetCustomStyle( CustomStyle.NodeWindowOnSquare );
+
 			//MainSkin.customStyles[ ( int ) CustomStyle.MiniButtonTopLeft ].fontSize = ( int ) ( 9 * drawInfo.InvertedZoom );
 			//MainSkin.customStyles[ ( int ) CustomStyle.MiniButtonTopMid ].fontSize = ( int ) ( 9 * drawInfo.InvertedZoom );
 			//MainSkin.customStyles[ ( int ) CustomStyle.MiniButtonTopRight ].fontSize = ( int ) ( 9 * drawInfo.InvertedZoom );
@@ -1103,6 +1168,11 @@ namespace AmplifyShaderEditor
 				return m_wirePortToCgType[ type ];
 
 			return string.Format( m_precisionWirePortToCgType[ type ], m_precisionTypeToCg[ precisionType ] );
+		}
+
+		public static string GetAutoSwizzle( WirePortDataType type )
+		{
+			return m_autoSwizzle[ type ];
 		}
 
 		public static Color GetColorForDataType( WirePortDataType dataType, bool monochromeMode = true, bool isInput = true )
@@ -1642,6 +1712,15 @@ namespace AmplifyShaderEditor
 			for( int i = 0; i < Constants.EnumInvalidChars.Length; i++ )
 			{
 				originalString = originalString.Replace( Constants.EnumInvalidChars[ i ], string.Empty );
+			}
+			return originalString;
+		}
+
+		public static string RemoveInvalidAttrCharacters( string originalString )
+		{
+			for( int i = 0; i < Constants.AttrInvalidChars.Length; i++ )
+			{
+				originalString = originalString.Replace( Constants.AttrInvalidChars[ i ], string.Empty );
 			}
 			return originalString;
 		}
@@ -2277,8 +2356,19 @@ namespace AmplifyShaderEditor
 		public static string[] SamplerNodeArr() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.SamplerNodes.NodesArr; } return null; }
 		public static SamplerNode GetSamplerNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.SamplerNodes.GetNode( idx ); } return null; }
 		public static void UpdateSamplerDataNode( int uniqueId, string data ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.SamplerNodes.UpdateDataOnNode( uniqueId, data ); } }
-		public static int GetSamplerNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.SamplerNodes.GetNodeRegisterId( uniqueId ); } return -1; }
+		public static int GetSamplerNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.SamplerNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
 		public static int GetSamplerNodeAmount() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.SamplerNodes.NodesList.Count; } return -1; }
+
+		// Float Node
+		public static void RegisterFloatIntNode( PropertyNode node ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.FloatIntNodes.AddNode( node ); } }
+		public static void UnregisterFloatIntNode( PropertyNode node ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.FloatIntNodes.RemoveNode( node ); } }
+		public static string[] FloatIntNodeArr() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatIntNodes.NodesArr; } return null; }
+		public static int[] FloatIntNodeIds() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatIntNodes.NodeIds; } return null; }
+		public static PropertyNode GetFloatIntNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatIntNodes.GetNode( idx ); } return null; }
+		public static void UpdateFloatIntDataNode( int uniqueId, string data ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.FloatIntNodes.UpdateDataOnNode( uniqueId, data ); } }
+		public static int GetFloatIntNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatIntNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
+		public static PropertyNode GetFloatIntNodeByUniqueId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatIntNodes.GetNodeByUniqueId( uniqueId ); } return null; }
+		//public static int GetFloatNodeAmount() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatNodes.NodesList.Count; } return -1; }
 
 		// Texture Property
 		public static void RegisterTexturePropertyNode( TexturePropertyNode node ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.TexturePropertyNodes.AddNode( node ); } }
@@ -2286,7 +2376,7 @@ namespace AmplifyShaderEditor
 		public static string[] TexturePropertyNodeArr() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TexturePropertyNodes.NodesArr; } return null; }
 		public static TexturePropertyNode GetTexturePropertyNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TexturePropertyNodes.GetNode( idx ); } return null; }
 		public static void UpdateTexturePropertyDataNode( int uniqueId, string data ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.TexturePropertyNodes.UpdateDataOnNode( uniqueId, data ); } }
-		public static int GetTexturePropertyNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TexturePropertyNodes.GetNodeRegisterId( uniqueId ); } return -1; }
+		public static int GetTexturePropertyNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TexturePropertyNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
 		public static int GetTexturePropertyNodeAmount() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TexturePropertyNodes.NodesList.Count; } return -1; }
 
 		// Texture Array
@@ -2295,7 +2385,7 @@ namespace AmplifyShaderEditor
 		public static string[] TextureArrayNodeArr() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TextureArrayNodes.NodesArr; } return null; }
 		public static TextureArrayNode GetTextureArrayNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TextureArrayNodes.GetNode( idx ); } return null; }
 		public static void UpdateTextureArrayDataNode( int uniqueId, string data ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.TextureArrayNodes.UpdateDataOnNode( uniqueId, data ); } }
-		public static int GetTextureArrayNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TextureArrayNodes.GetNodeRegisterId( uniqueId ); } return -1; }
+		public static int GetTextureArrayNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TextureArrayNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
 		public static int GetTextureArrayNodeAmount() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.TextureArrayNodes.NodesList.Count; } return -1; }
 
 		// Property Node
@@ -2303,8 +2393,9 @@ namespace AmplifyShaderEditor
 		public static void UnregisterPropertyNode( PropertyNode node ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.PropertyNodes.RemoveNode( node ); } }
 		public static string[] PropertyNodeNodeArr() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.PropertyNodes.NodesArr; } return null; }
 		public static PropertyNode GetPropertyNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.PropertyNodes.GetNode( idx ); } return null; }
+		public static PropertyNode GetPropertyNodeByUniqueId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.PropertyNodes.GetNodeByUniqueId( uniqueId ); } return null; }
 		public static void UpdatePropertyDataNode( int uniqueId, string data ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.PropertyNodes.UpdateDataOnNode( uniqueId, data ); } }
-		public static int GetPropertyNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.PropertyNodes.GetNodeRegisterId( uniqueId ); } return -1; }
+		public static int GetPropertyNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.PropertyNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
 		public static List<PropertyNode> PropertyNodesList() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.PropertyNodes.NodesList; } return null; }
 		public static int GetPropertyNodeAmount() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.PropertyNodes.NodesList.Count; } return -1; }
 
@@ -2340,14 +2431,14 @@ namespace AmplifyShaderEditor
 		public static void UpdateFunctionSwitchArr() { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.FunctionSwitchNodes.UpdateNodeArr(); } }
 		public static string[] FunctionSwitchesNodeArr() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FunctionSwitchNodes.NodesArr; } return null; }
 		public static FunctionSwitch GetFunctionSwitchNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FunctionSwitchNodes.GetNode( idx ); } return null; }
-		public static int GetFunctionSwitchNodeIndex( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FunctionSwitchNodes.GetNodeRegisterId( uniqueId ); } return -1; }
+		public static int GetFunctionSwitchNodeIndex( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FunctionSwitchNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
 
 		// Screen Color Node
 		public static void RegisterScreenColorNode( ScreenColorNode node ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.ScreenColorNodes.AddNode( node ); } }
 		public static void UnregisterScreenColorNode( ScreenColorNode node ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.ScreenColorNodes.RemoveNode( node ); } }
 		public static string[] ScreenColorNodeArr() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.ScreenColorNodes.NodesArr; } return null; }
 		public static ScreenColorNode GetScreenColorNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.ScreenColorNodes.GetNode( idx ); } return null; }
-		public static int GetScreenColorNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.ScreenColorNodes.GetNodeRegisterId( uniqueId ); } return -1; }
+		public static int GetScreenColorNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.ScreenColorNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
 		public static void UpdateScreenColorDataNode( int uniqueId, string data ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.ScreenColorNodes.UpdateDataOnNode( uniqueId, data ); } }
 		public static int GetScreenColorNodeAmount() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.ScreenColorNodes.NodesList.Count; } return -1; }
 
@@ -2356,7 +2447,7 @@ namespace AmplifyShaderEditor
 		public static void UnregisterLocalVarNode( RegisterLocalVarNode node ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.LocalVarNodes.RemoveNode( node ); } }
 		public static string[] LocalVarNodeArr() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.LocalVarNodes.NodesArr; } return null; }
 		public static int LocalVarNodeAmount() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.LocalVarNodes.NodesList.Count; } return 0; }
-		public static int GetLocalVarNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.LocalVarNodes.GetNodeRegisterId( uniqueId ); } return -1; }
+		public static int GetLocalVarNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.LocalVarNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
 		public static RegisterLocalVarNode GetLocalVarNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.LocalVarNodes.GetNode( idx ); } return null; }
 		public static void UpdateLocalVarDataNode( int uniqueId, string data ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.LocalVarNodes.UpdateDataOnNode( uniqueId, data ); } }
 

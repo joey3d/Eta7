@@ -56,6 +56,30 @@ namespace AmplifyShaderEditor
 			m_previewShaderGUID = "d9ca47581ac157145bff6f72ac5dd73e";
 		}
 
+		protected override void OnUniqueIDAssigned()
+		{
+			base.OnUniqueIDAssigned();
+			UIUtils.RegisterFloatIntNode( this );
+		}
+
+		public override void Destroy()
+		{
+			base.Destroy();
+			UIUtils.UnregisterFloatIntNode( this );
+		}
+
+		public override void OnPropertyNameChanged()
+		{
+			base.OnPropertyNameChanged();
+			UIUtils.UpdateFloatIntDataNode( UniqueId, PropertyInspectorName );
+		}
+
+		public override void RefreshExternalReferences()
+		{
+			base.RefreshExternalReferences();
+			OnPropertyNameChanged();
+		}
+
 		public void SetFloatMode( bool value )
 		{
 			if ( m_floatMode == value )

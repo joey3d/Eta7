@@ -11,7 +11,7 @@ namespace AmplifyShaderEditor
 																"{\n",
 																"\t{0}4 K = {0}4( 1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0 );\n",
 																"\t{0}3 p = abs( frac( c.xxx + K.xyz ) * 6.0 - K.www );\n",
-																"\treturn c.z * lerp( K.xxx, clamp( p - K.xxx, 0.0, 1.0 ), c.y );\n",
+																"\treturn c.z * lerp( K.xxx, saturate( p - K.xxx ), c.y );\n",
 																"}\n"};
 		public static readonly bool[] HSVToRGBFlags = {	true,
 														false,

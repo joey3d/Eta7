@@ -7,8 +7,9 @@ using UnityEditor;
 namespace AmplifyShaderEditor
 {
 	[Serializable]
-	class TemplateColorMaskModule : TemplateModuleParent
+	public class TemplateColorMaskModule : TemplateModuleParent
 	{
+		private const string ColorMaskOff = "ColorMask RGBA";
 		private GUIContent ColorMaskContent = new GUIContent( "Color Mask", "Sets color channel writing mask, turning all off makes the object completely invisible\nDefault: RGBA" );
 		private readonly char[] m_colorMaskChar = { 'R', 'G', 'B', 'A' };
 
@@ -20,41 +21,61 @@ namespace AmplifyShaderEditor
 
         [ SerializeField]
 		private bool[] m_colorMask = { true, true, true, true };
-		
-		public void ConfigureFromTemplateData( TemplateColorMaskData data )
+
+		public void CopyFrom( TemplateColorMaskModule other )
 		{
-			for( int i = 0; i < 4; i++ )
+			for( int i = 0; i < m_colorMask.Length; i++ )
 			{
-				m_colorMask[ i ] = data.ColorMaskData[ i ];
+				m_colorMask[ i ] = other.ColorMask[ i ];
 			}
 		}
-		
-		public override void Draw( ParentNode owner )
+
+		public void ConfigureFromTemplateData( TemplateColorMaskData data )
 		{
-			if( m_leftToggleColorMask == null || m_leftToggleColorMask.normal.background == null )
+			bool newValidData = ( data.DataCheck == TemplateDataCheck.Valid );
+			if( newValidData && m_validData != newValidData )
 			{
-				m_leftToggleColorMask = GUI.skin.GetStyle( "ButtonLeft" );
+				for( int i = 0; i < 4; i++ )
+				{
+					m_colorMask[ i ] = data.ColorMaskData[ i ];
+				}
 			}
-
-			if( m_middleToggleColorMask == null || m_middleToggleColorMask.normal.background == null )
+			m_validData = newValidData;
+		}
+		
+		public override void Draw( ParentNode owner , bool style = true )
+		{
+			EditorGUI.BeginChangeCheck();
 			{
-				m_middleToggleColorMask = GUI.skin.GetStyle( "ButtonMid" );
-			}
+				if( m_leftToggleColorMask == null || m_leftToggleColorMask.normal.background == null )
+				{
+					m_leftToggleColorMask = GUI.skin.GetStyle( "ButtonLeft" );
+				}
 
-			if( m_rightToggleColorMask == null || m_rightToggleColorMask.normal.background == null )
+				if( m_middleToggleColorMask == null || m_middleToggleColorMask.normal.background == null )
+				{
+					m_middleToggleColorMask = GUI.skin.GetStyle( "ButtonMid" );
+				}
+
+				if( m_rightToggleColorMask == null || m_rightToggleColorMask.normal.background == null )
+				{
+					m_rightToggleColorMask = GUI.skin.GetStyle( "ButtonRight" );
+				}
+
+				EditorGUILayout.BeginHorizontal();
+				EditorGUILayout.LabelField( ColorMaskContent, GUILayout.Width( 90 ) );
+
+				m_colorMask[ 0 ] = owner.GUILayoutToggle( m_colorMask[ 0 ], "R", m_leftToggleColorMask );
+				m_colorMask[ 1 ] = owner.GUILayoutToggle( m_colorMask[ 1 ], "G", m_middleToggleColorMask );
+				m_colorMask[ 2 ] = owner.GUILayoutToggle( m_colorMask[ 2 ], "B", m_middleToggleColorMask );
+				m_colorMask[ 3 ] = owner.GUILayoutToggle( m_colorMask[ 3 ], "A", m_rightToggleColorMask );
+
+				EditorGUILayout.EndHorizontal();
+			}
+			if( EditorGUI.EndChangeCheck() )
 			{
-				m_rightToggleColorMask = GUI.skin.GetStyle( "ButtonRight" );
+				m_isDirty = true;
 			}
-			
-			EditorGUILayout.BeginHorizontal();
-			EditorGUILayout.LabelField( ColorMaskContent, GUILayout.Width( 90 ) );
-
-			m_colorMask[ 0 ] = owner.GUILayoutToggle( m_colorMask[ 0 ], "R", m_leftToggleColorMask );
-			m_colorMask[ 1 ] = owner.GUILayoutToggle( m_colorMask[ 1 ], "G", m_middleToggleColorMask );
-			m_colorMask[ 2 ] = owner.GUILayoutToggle( m_colorMask[ 2 ], "B", m_middleToggleColorMask );
-			m_colorMask[ 3 ] = owner.GUILayoutToggle( m_colorMask[ 3 ], "A", m_rightToggleColorMask );
-
-			EditorGUILayout.EndHorizontal();
 		}
 
 		public override string GenerateShaderData()
@@ -75,25 +96,40 @@ namespace AmplifyShaderEditor
 				return "ColorMask " + ( ( count == 0 ) ? "0" : colorMask );
 			}
 
-			return string.Empty;
+			return ColorMaskOff;
 		}
 
 		public override void ReadFromString( ref uint index, ref string[] nodeParams )
 		{
-			for( int i = 0; i < m_colorMask.Length; i++ )
+			bool validDataOnMeta = m_validData;
+			if( UIUtils.CurrentShaderVersion() > TemplatesManager.MPShaderVersion )
 			{
-				m_colorMask[ i ] = Convert.ToBoolean( nodeParams[ index++ ] );
+				validDataOnMeta = Convert.ToBoolean( nodeParams[ index++ ] );
+			}
+
+			if( validDataOnMeta )
+			{
+				for( int i = 0; i < m_colorMask.Length; i++ )
+				{
+					m_colorMask[ i ] = Convert.ToBoolean( nodeParams[ index++ ] );
+				}
 			}
 		}
 
 		public override void WriteToString( ref string nodeInfo )
 		{
-			for( int i = 0; i < m_colorMask.Length; i++ )
+			IOUtils.AddFieldValueToString( ref nodeInfo, m_validData );
+			if( m_validData )
 			{
-				IOUtils.AddFieldValueToString( ref nodeInfo, m_colorMask[ i ] );
+				for( int i = 0; i < m_colorMask.Length; i++ )
+				{
+					IOUtils.AddFieldValueToString( ref nodeInfo, m_colorMask[ i ] );
+				}
 			}
 		}
 
+		public bool[] ColorMask { get { return m_colorMask; } }
+		
 		public override void Destroy()
 		{
 			m_leftToggleColorMask = null;

@@ -289,6 +289,7 @@ namespace AmplifyShaderEditor
 		private bool m_replaceMasterNode = false;
 		private AvailableShaderTypes m_replaceMasterNodeType;
 		private string m_replaceMasterNodeData;
+		private bool m_replaceMasterNodeDataFromCache;
 		private NodeWireReferencesUtils m_wireReferenceUtils = new NodeWireReferencesUtils();
 
 		private ParentNode m_nodeToFocus = null;
@@ -774,9 +775,8 @@ namespace AmplifyShaderEditor
 
 		public void SetTemplateShader( string templateName, bool writeDefaultData )
 		{
-			TemplateMasterNode masterNode = m_mainGraphInstance.ReplaceMasterNode( AvailableShaderTypes.Template ) as TemplateMasterNode;
-			// FireMasterNodeReplacedEvent is done inside SetTemplate
-			masterNode.SetTemplate( TemplatesManager.GetTemplate( ( string.IsNullOrEmpty( templateName ) ? "6e114a916ca3e4b4bb51972669d463bf" : templateName ) ), writeDefaultData, false );
+			TemplateDataParent templateData = TemplatesManager.GetTemplate( ( string.IsNullOrEmpty( templateName ) ? "6e114a916ca3e4b4bb51972669d463bf" : templateName ) );
+			m_mainGraphInstance.ReplaceMasterNode( AvailableShaderTypes.Template, writeDefaultData, templateData );
 		}
 
 		public void DeleteSelectedNodeWithRepaint()
@@ -809,8 +809,7 @@ namespace AmplifyShaderEditor
 
 			m_materialsToUpdate.Clear();
 			m_materialsToUpdate = null;
-
-
+			
 			GLDraw.Destroy();
 
 			UIUtils.Destroy();
@@ -1055,6 +1054,9 @@ namespace AmplifyShaderEditor
 
 		public void UpdateTabTitle( string newTitle, bool modified )
 		{
+			string[] titleArray = newTitle.Split( '/' );
+			newTitle = titleArray[ titleArray.Length - 1 ];
+
 			if( !( m_currentTitle.Equals( newTitle ) && m_currentTitleMod == modified ) )
 			{
 				this.titleContent.text = GenerateTabTitle( newTitle, modified );
@@ -2794,6 +2796,7 @@ namespace AmplifyShaderEditor
 			//Record deleted nodes
 			UIUtils.MarkUndoAction();
 			Undo.RegisterCompleteObjectUndo( this, Constants.UndoDeleteNodeId );
+			Undo.RecordObject( m_mainGraphInstance, Constants.UndoDeleteNodeId );
 			Undo.RecordObjects( selectedNodes, Constants.UndoDeleteNodeId );
 			Undo.RecordObjects( extraNodes.ToArray(), Constants.UndoDeleteNodeId );
 			Undo.IncrementCurrentGroup();
@@ -2820,7 +2823,7 @@ namespace AmplifyShaderEditor
 			{
 				m_altPressDown = false;
 			}
-
+			
 			if( m_shortcutManager.ActivateShortcut( m_currentEvent.modifiers, m_lastKeyPressed, false ) )
 			{
 				ForceRepaint();
@@ -3074,6 +3077,7 @@ namespace AmplifyShaderEditor
 					Vector2 pos = node.Vec2Position;
 					node.Vec2Position = pos + deltaPos + m_copyPasteDeltaMul * Constants.CopyPasteDeltaPos;
 					//node.RefreshExternalReferences();
+					node.AfterDuplication( node );
 					createdNodes.Add( node );
 					m_mainGraphInstance.SelectNode( node, true, false );
 				}
@@ -3790,6 +3794,11 @@ namespace AmplifyShaderEditor
 										m_paletteWindowMaximized = m_paletteWindow.IsMaximized = dummyPaletteWindowMaximized;
 									}
 								}
+
+								if( m_mainGraphInstance.CurrentCanvasMode == NodeAvailability.TemplateShader )
+								{
+									m_mainGraphInstance.RefreshLinkedMasterNodes();
+								}
 							}
 							else
 							{
@@ -3893,6 +3902,39 @@ namespace AmplifyShaderEditor
 		}
 
 		public bool MouseInteracted = false;
+
+
+		void CheckNodeReplacement()
+		{
+			if( m_replaceMasterNode )
+			{
+				m_replaceMasterNode = false;
+				switch( m_replaceMasterNodeType )
+				{
+					default:
+					case AvailableShaderTypes.SurfaceShader:
+					{
+						SetStandardShader();
+					}
+					break;
+					case AvailableShaderTypes.Template:
+					{
+
+						if( m_replaceMasterNodeDataFromCache )
+						{
+							TemplateDataParent templateData = TemplatesManager.GetTemplate( m_replaceMasterNodeData );
+							m_mainGraphInstance.CrossCheckTemplateNodes( templateData );
+							//m_clipboard.GetMultiPassNodesFromClipboard( m_mainGraphInstance.MultiPassMasterNodes.NodesList );
+						}
+						else
+						{
+							SetTemplateShader( m_replaceMasterNodeData, false );
+						}
+					}
+					break;
+				}
+			}
+		}
 
 		void OnGUI()
 		{
@@ -4113,25 +4155,7 @@ namespace AmplifyShaderEditor
 
 				PreTestLeftMouseDown();
 				//m_mainGraphInstance.DrawBezierBoundingBox();
-				if( m_replaceMasterNode )
-				{
-					m_replaceMasterNode = false;
-					switch( m_replaceMasterNodeType )
-					{
-						default:
-						case AvailableShaderTypes.SurfaceShader:
-						{
-							SetStandardShader();
-						}
-						break;
-						case AvailableShaderTypes.Template:
-						{
-							SetTemplateShader( m_replaceMasterNodeData, false );
-						}
-						break;
-					}
-
-				}
+				//CheckNodeReplacement();
 
 				// Main Graph Draw
 				m_repaintIsDirty = m_mainGraphInstance.Draw( m_drawInfo ) || m_repaintIsDirty;
@@ -4145,7 +4169,7 @@ namespace AmplifyShaderEditor
 				MasterNode masterNode = m_mainGraphInstance.CurrentMasterNode;
 				if( masterNode != null )
 				{
-					m_toolsWindow.DrawShaderTitle( m_nodeParametersWindow, m_paletteWindow, AvailableCanvasWidth, m_graphArea.height, masterNode.ShaderName );
+					m_toolsWindow.DrawShaderTitle( m_nodeParametersWindow, m_paletteWindow, AvailableCanvasWidth, m_graphArea.height, masterNode.CroppedShaderName );
 				}
 				else if( m_mainGraphInstance.CurrentOutputNode != null )
 				{
@@ -4409,6 +4433,8 @@ namespace AmplifyShaderEditor
 					Debug.LogException( e );
 				}
 			}
+
+			CheckNodeReplacement();
 		}
 
 		
@@ -4816,11 +4842,16 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public void ReplaceMasterNode( MasterNodeCategoriesData data )
+		public void ReplaceMasterNode( MasterNodeCategoriesData data, bool cacheMasterNodes )
 		{
 			m_replaceMasterNodeType = data.Category;
 			m_replaceMasterNode = true;
 			m_replaceMasterNodeData = data.Name;
+			m_replaceMasterNodeDataFromCache = cacheMasterNodes;
+			if( cacheMasterNodes )
+			{
+				m_clipboard.AddMultiPassNodesToClipboard( m_mainGraphInstance.MultiPassMasterNodes.NodesList );
+			}
 		}
 
 		public Vector2 TranformPosition( Vector2 pos )

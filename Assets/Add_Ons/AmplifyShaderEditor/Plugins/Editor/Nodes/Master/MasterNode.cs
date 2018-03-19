@@ -33,7 +33,8 @@ namespace AmplifyShaderEditor
 	[Serializable]
 	public class MasterNode : OutputNode
 	{
-		private const string PropertyOderFoldoutStr = " Material Properties";
+		private const string PropertyOrderFoldoutStr = " Material Properties";
+		private const string PropertyOrderTemplateFoldoutStr = "Material Properties";
 
 		protected MasterNodeDataCollector m_currentDataCollector;
 
@@ -73,6 +74,9 @@ namespace AmplifyShaderEditor
 
 		[SerializeField]
 		protected string m_shaderName = "New AmplifyShader";
+
+		[SerializeField]
+		protected string m_croppedShaderName = "New AmplifyShader";
 
 		[SerializeField]
 		protected string m_customInspectorName = Constants.DefaultCustomInspector;
@@ -115,10 +119,12 @@ namespace AmplifyShaderEditor
 		private List<PropertyNode> m_propertyNodesVisibleList = new List<PropertyNode>();
 
 		private ReorderableList m_propertyReordableList;
+		protected bool m_propertyOrderChanged = false;
 		//private int m_availableCount = 0;
 		private int m_lastCount = 0;
 
 		private GUIStyle m_propertyAdjustment;
+		protected bool m_shaderNameIsTitle = true;
 
 		void CommonInit()
 		{
@@ -146,7 +152,7 @@ namespace AmplifyShaderEditor
 			for( int i = 0; i < templateCount; i++ )
 			{
 				int idx = i + 1;
-				TemplateData templateData = TemplatesManager.GetTemplate( i );
+				TemplateDataParent templateData = TemplatesManager.GetTemplate( i );
 				m_availableCategories[ idx ] = new MasterNodeCategoriesData( AvailableShaderTypes.Template, templateData.GUID );
 				m_availableCategoryLabels[ idx ] = new GUIContent( templateData.Name );
 			}
@@ -199,7 +205,7 @@ namespace AmplifyShaderEditor
 			m_masterNodeCategory = EditorGUILayoutPopup( m_categoryLabel, m_masterNodeCategory, m_availableCategoryLabels );
 			if( oldType != m_masterNodeCategory )
 			{
-				m_containerGraph.ParentWindow.ReplaceMasterNode( m_availableCategories[ m_masterNodeCategory ] );
+				m_containerGraph.ParentWindow.ReplaceMasterNode( m_availableCategories[ m_masterNodeCategory ] , false );
 			}
 		}
 
@@ -292,9 +298,11 @@ namespace AmplifyShaderEditor
 				InitAvailableCategories();
 
 			base.Draw( drawInfo );
+		}
 
-			if( drawInfo.CurrentEventType != EventType.Repaint )
-				return;
+		public override void OnNodeRepaint( DrawInfo drawInfo )
+		{
+			base.OnNodeRepaint( drawInfo );
 
 			if( m_isMainOutputNode )
 			{
@@ -330,11 +338,6 @@ namespace AmplifyShaderEditor
 				{
 					m_gpuInstanceOnTex = UIUtils.GPUInstancedOnTexture;
 				}
-
-				//if ( UIUtils.IsInstancedShader() )
-				//{
-				//	DrawInstancedIcon( drawInfo );
-				//}
 			}
 		}
 
@@ -524,15 +527,24 @@ namespace AmplifyShaderEditor
 			m_propertyNodesVisibleList.Sort( ( x, y ) => { return x.OrderIndex.CompareTo( y.OrderIndex ); } );
 		}
 
-		public void DrawMaterialInputs( GUIStyle toolbarstyle )
+		public void DrawMaterialInputs( GUIStyle toolbarstyle , bool style = true)
 		{
+			m_propertyOrderChanged = false;
 			Color cachedColor = GUI.color;
 			GUI.color = new Color( cachedColor.r, cachedColor.g, cachedColor.b, 0.5f );
 			EditorGUILayout.BeginHorizontal( toolbarstyle );
 			GUI.color = cachedColor;
 
 			EditorGUI.BeginChangeCheck();
-			ContainerGraph.ParentWindow.ExpandedProperties = GUILayoutToggle( ContainerGraph.ParentWindow.ExpandedProperties, PropertyOderFoldoutStr, UIUtils.MenuItemToggleStyle );
+			if( style )
+			{
+				ContainerGraph.ParentWindow.ExpandedProperties = GUILayoutToggle( ContainerGraph.ParentWindow.ExpandedProperties, PropertyOrderFoldoutStr, UIUtils.MenuItemToggleStyle );
+			}
+			else
+			{
+				ContainerGraph.ParentWindow.ExpandedProperties = GUILayoutToggle( ContainerGraph.ParentWindow.ExpandedProperties, PropertyOrderTemplateFoldoutStr, UIUtils.MenuItemToggleStyle );
+			}
+
 			if( EditorGUI.EndChangeCheck() )
 			{
 				EditorPrefs.SetBool( "ExpandedProperties", ContainerGraph.ParentWindow.ExpandedProperties );
@@ -571,6 +583,7 @@ namespace AmplifyShaderEditor
 					onReorderCallback = ( list ) =>
 					{
 						ReorderList( ref nodes );
+						m_propertyOrderChanged = true;
 						//RecursiveLog();
 					}
 				};
@@ -656,6 +669,13 @@ namespace AmplifyShaderEditor
 					count++;
 				}
 			}
+		}
+
+		public void CopyPropertyListFrom( MasterNode masterNode )
+		{
+			m_lastCount = masterNode.ReordableListLastCount;
+			m_propertyNodesVisibleList.Clear();
+			m_propertyNodesVisibleList.AddRange( masterNode.PropertyNodesVisibleList );
 		}
 
 		public virtual void UpdateFromShader( Shader newShader ) { }
@@ -785,13 +805,21 @@ namespace AmplifyShaderEditor
 			set
 			{
 				m_shaderName = value;
-				m_content.text = GenerateClippedTitle( value );
+				string[] shaderNameArr = m_shaderName.Split( '/' );
+				m_croppedShaderName = shaderNameArr[ shaderNameArr.Length - 1 ];
+
+				if( m_shaderNameIsTitle )
+					m_content.text = GenerateClippedTitle( m_croppedShaderName );
+
 				m_sizeIsDirty = true;
 			}
 		}
-
+		public string CroppedShaderName { get { return m_croppedShaderName; } }
 		public AvailableShaderTypes CurrentMasterNodeCategory { get { return ( m_masterNodeCategory == 0 ) ? AvailableShaderTypes.SurfaceShader : AvailableShaderTypes.Template; } }
 		public int CurrentMasterNodeCategoryIdx { get { return m_masterNodeCategory; } }
 		public MasterNodeDataCollector CurrentDataCollector { get { return m_currentDataCollector; } set { m_currentDataCollector = value; } }
+		public List<PropertyNode> PropertyNodesVisibleList { get { return m_propertyNodesVisibleList; } }
+		public ReorderableList PropertyReordableList { get { return m_propertyReordableList; } }
+		public int ReordableListLastCount { get { return m_lastCount; } }
 	}
 }

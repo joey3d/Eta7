@@ -55,7 +55,7 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public TemplateVertexData RequestChannels( WirePortDataType type, bool isColor )
+		public TemplateVertexData RequestChannels( WirePortDataType type, bool isColor, string customName = null )
 		{
 			if ( IsFull )
 				return null;
@@ -82,6 +82,11 @@ namespace AmplifyShaderEditor
 			//did not found enough channels to fill request
 			if ( channelsRequired > 0 )
 				return null;
+
+			if( Usage == 0 && customName != null )
+			{
+				Name = customName;
+			}
 
 			Usage += 1;
 			TemplateVertexData data = null;
@@ -128,6 +133,7 @@ namespace AmplifyShaderEditor
 
 		public List<TemplateInterpElement> AvailableInterpolators = new List<TemplateInterpElement>();
 		public List<TemplateVertexData> Interpolators = new List<TemplateVertexData>();
+		public List<TemplateVertexData> RawInterpolators = new List<TemplateVertexData>();
 
 		public TemplateInterpData() { }
 		public TemplateInterpData( TemplateInterpData other )
@@ -140,6 +146,11 @@ namespace AmplifyShaderEditor
 			for ( int i = 0; i < other.Interpolators.Count; i++ )
 			{
 				Interpolators.Add( new TemplateVertexData( other.Interpolators[ i ] ) );
+			}
+
+			for( int i = 0; i < other.RawInterpolators.Count; i++ )
+			{
+				RawInterpolators.Add( new TemplateVertexData( other.RawInterpolators[ i ] ) );
 			}
 		}
 
@@ -162,6 +173,9 @@ namespace AmplifyShaderEditor
 
 			Interpolators.Clear();
 			Interpolators = null;
+
+			RawInterpolators.Clear();
+			RawInterpolators = null;
 		}
 		
 		public string InterpDataId { get { return m_interpDataId; } set { m_interpDataId = value; } }

@@ -34,9 +34,9 @@ namespace AmplifyShaderEditor
 		private List<PropertyNode> m_propertyReordableNodes = new List<PropertyNode>();
 
 		// width and height are between [0,1] and represent a percentage of the total screen area
-		public NodeParametersWindow( AmplifyShaderEditorWindow parentWindow ) : base( parentWindow, 0, 0, 250, 0, string.Empty, MenuAnchor.TOP_LEFT, MenuAutoSize.MATCH_VERTICAL )
+		public NodeParametersWindow( AmplifyShaderEditorWindow parentWindow ) : base( parentWindow, 0, 0, 265, 0, string.Empty, MenuAnchor.TOP_LEFT, MenuAutoSize.MATCH_VERTICAL )
 		{
-			SetMinimizedArea( -225, 0, 260, 0 );
+			SetMinimizedArea( -225, 0, 275, 0 );
 		}
 
 		public void OnShaderFunctionLoad()

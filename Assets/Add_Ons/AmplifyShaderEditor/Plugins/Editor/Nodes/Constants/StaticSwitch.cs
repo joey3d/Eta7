@@ -123,7 +123,10 @@ namespace AmplifyShaderEditor
 		protected override void OnUniqueIDAssigned()
 		{
 			base.OnUniqueIDAssigned();
-			UIUtils.RegisterPropertyNode( this );
+			if( m_createToggle )
+				UIUtils.RegisterPropertyNode( this );
+			else
+				UIUtils.UnregisterPropertyNode( this );
 		}
 
 		public override void Destroy()
@@ -726,6 +729,11 @@ namespace AmplifyShaderEditor
 
 				UpdateLabels();
 			}
+
+			if( m_createToggle )
+				UIUtils.RegisterPropertyNode( this );
+			else
+				UIUtils.UnregisterPropertyNode( this );
 		}
 
 		public override void ReadFromDeprecated( ref string[] nodeParams, Type oldType = null )

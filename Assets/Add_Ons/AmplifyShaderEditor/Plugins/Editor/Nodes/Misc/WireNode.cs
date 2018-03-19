@@ -394,15 +394,21 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public override void ReadFromString( ref string[] nodeParams )
+		public override void RefreshExternalReferences()
 		{
-			base.ReadFromString( ref nodeParams );
+			base.RefreshExternalReferences();
 
 			m_extraSize.Set( 20f, 20f );
 			m_position.width = m_extraSize.x + UIUtils.PortsSize.x;
 			m_position.height = m_extraSize.y + UIUtils.PortsSize.y;
 
 			Vec2Position += Position.size * 0.5f;
+		}
+
+		public override void OnAfterDeserialize()
+		{
+			base.OnAfterDeserialize();
+			m_sizeIsDirty = false;
 		}
 
 		public WireReference FindNewValidInputNode( WireNode current )

@@ -11,6 +11,14 @@ namespace AmplifyShaderEditor
 	public sealed class InputPort : WirePort
 	{
 		private const string InputDefaultNameStr = "Input";
+		[SerializeField]
+		private int m_externalNodeLink = -1;
+
+		[SerializeField]
+		private int m_externalPortLink = -1;
+
+		[SerializeField]
+		private string m_externalLinkId = string.Empty;
 
 		[SerializeField]
 		private bool m_typeLocked;
@@ -62,6 +70,9 @@ namespace AmplifyShaderEditor
 		private Color m_previewInternalColor = Color.clear;
 		private Matrix4x4 m_previewInternalMatrix4x4 = Matrix4x4.identity;
 
+		private int m_propertyNameInt = 0;
+		private ParentNode m_node = null;
+
 		public InputPort() : base( -1, -1, WirePortDataType.FLOAT, string.Empty ) { m_typeLocked = true; }
 		public InputPort( int nodeId, int portId, WirePortDataType dataType, string name, bool typeLocked, int orderId = -1, MasterNodePortCategory category = MasterNodePortCategory.Fragment, PortGenType genType = PortGenType.NonCustomLighting ) : base( nodeId, portId, dataType, name, orderId )
 		{
@@ -79,6 +90,12 @@ namespace AmplifyShaderEditor
 			m_typeLocked = typeLocked;
 			m_category = category;
 			m_genType = genType;
+		}
+
+		public void SetExternalLink( int nodeId, int portId )
+		{
+			m_externalNodeLink = nodeId;
+			m_externalPortLink = portId;
 		}
 
 		public override bool CheckValidType( WirePortDataType dataType )
@@ -263,7 +280,7 @@ namespace AmplifyShaderEditor
 									}
 									else
 									{
-										m_previewInternalMatrix4x4[ i, j ] = (( i == j ) ? 1 : 0);
+										m_previewInternalMatrix4x4[ i, j ] = ( ( i == j ) ? 1 : 0 );
 									}
 									overallIdx++;
 								}
@@ -387,6 +404,12 @@ namespace AmplifyShaderEditor
 		// This is a new similar method to GenerateShaderForOutput(...) which always autocasts
 		public string GeneratePortInstructions( ref MasterNodeDataCollector dataCollector )
 		{
+			InputPort linkPort = ExternalLink;
+			if( linkPort != null )
+			{
+				return linkPort.GeneratePortInstructions( ref dataCollector );
+			}
+
 			string result = string.Empty;
 			if( m_externalReferences.Count > 0 && !m_locked )
 			{
@@ -411,6 +434,12 @@ namespace AmplifyShaderEditor
 
 		public string GenerateShaderForOutput( ref MasterNodeDataCollector dataCollector, bool ignoreLocalVar )
 		{
+			InputPort linkPort = ExternalLink;
+			if( linkPort != null )
+			{
+				return linkPort.GenerateShaderForOutput( ref dataCollector, ignoreLocalVar );
+			}
+
 			string result = string.Empty;
 			if( m_externalReferences.Count > 0 && !m_locked )
 			{
@@ -436,6 +465,12 @@ namespace AmplifyShaderEditor
 
 		public string GenerateShaderForOutput( ref MasterNodeDataCollector dataCollector, WirePortDataType inputPortType, bool ignoreLocalVar, bool autoCast = false )
 		{
+			InputPort linkPort = ExternalLink;
+			if( linkPort != null )
+			{
+				return linkPort.GenerateShaderForOutput( ref dataCollector, inputPortType, ignoreLocalVar, autoCast );
+			}
+
 			string result = string.Empty;
 			if( m_externalReferences.Count > 0 && !m_locked )
 			{
@@ -1116,10 +1151,7 @@ namespace AmplifyShaderEditor
 
 			PortId = newPortId;
 		}
-
-		private int m_propertyNameInt = 0;
-		private ParentNode m_node = null;
-
+		
 		public override void Destroy()
 		{
 			base.Destroy();
@@ -1234,6 +1266,44 @@ namespace AmplifyShaderEditor
 					return GetOutputConnection( 0 ).OutputPreviewTexture;
 				else
 					return m_inputPreviewTexture;
+			}
+		}
+
+		public string ExternalLinkId
+		{
+			get { return m_externalLinkId; }
+			set
+			{
+				m_externalLinkId = value;
+				if( string.IsNullOrEmpty( value ) )
+				{
+					m_externalNodeLink = -1;
+					m_externalPortLink = -1;
+				}
+			}
+		}
+		public bool HasExternalLink { get { return m_externalNodeLink > -1 && m_externalPortLink > -1; } }
+		public bool HasConnectedExternalLink
+		{
+			get
+			{
+				InputPort link = ExternalLink;
+				return ( link != null && link.IsConnected );
+			}
+		}
+		public InputPort ExternalLink
+		{
+			get
+			{
+				if( HasExternalLink )
+				{
+					ParentNode linkNode = UIUtils.GetNode( m_externalNodeLink );
+					if( linkNode != null )
+					{
+						return linkNode.GetInputPortByUniqueId( m_externalPortLink );
+					}
+				}
+				return null;
 			}
 		}
 	}

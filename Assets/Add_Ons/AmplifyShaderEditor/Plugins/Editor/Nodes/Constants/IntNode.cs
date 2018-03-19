@@ -39,6 +39,30 @@ namespace AmplifyShaderEditor
 			m_previewShaderGUID = "0f64d695b6ffacc469f2dd31432a232a";
 		}
 
+		protected override void OnUniqueIDAssigned()
+		{
+			base.OnUniqueIDAssigned();
+			UIUtils.RegisterFloatIntNode( this );
+		}
+
+		public override void Destroy()
+		{
+			base.Destroy();
+			UIUtils.UnregisterFloatIntNode( this );
+		}
+
+		public override void OnPropertyNameChanged()
+		{
+			base.OnPropertyNameChanged();
+			UIUtils.UpdateFloatIntDataNode( UniqueId, PropertyInspectorName );
+		}
+
+		public override void RefreshExternalReferences()
+		{
+			base.RefreshExternalReferences();
+			OnPropertyNameChanged();
+		}
+
 		public override void SetPreviewInputs()
 		{
 			base.SetPreviewInputs();

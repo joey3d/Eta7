@@ -120,7 +120,6 @@ namespace AmplifyShaderEditor
 			m_textLabelWidth = 115;
 			m_availableAttribs.Add( new PropertyAttributes( "No Scale Offset", "[NoScaleOffset]" ) );
 			m_availableAttribs.Add( new PropertyAttributes( "Normal", "[Normal]" ) );
-			m_availableAttribs.Add( new PropertyAttributes( "Per Renderer Data", "[PerRendererData]" ) );
 			m_showPreview = true;
 			m_drawPreviewExpander = false;
 			m_drawPreview = false;
@@ -380,7 +379,7 @@ namespace AmplifyShaderEditor
 
 		public string GetTexture2DArrayUniformValue()
 		{
-			return "uniform UNITY_DECLARE_TEX2DARRAY( " + PropertyName + " );";
+			return "uniform TEXTURE2D_ARRAY( " + PropertyName + " );" + "\nuniform SAMPLER( sampler" + PropertyName + " );";
 		}
 
 		public override void DrawMainPropertyBlock()
@@ -915,6 +914,12 @@ namespace AmplifyShaderEditor
 		{
 			if( m_currentType == TextureType.Texture2DArray )
 			{
+				if( m_containerGraph.CurrentMasterNode.CurrentDataCollector.IsTemplate && m_containerGraph.CurrentMasterNode.CurrentDataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
+				{
+					dataType = "TEXTURE2D_ARRAY( " + PropertyName + "";
+					dataName = ");\nuniform SAMPLER( sampler" + PropertyName + " )";
+					return true;
+				}
 				dataType = "UNITY_DECLARE_TEX2DARRAY(";
 				dataName = m_propertyName + " )";
 				return true;

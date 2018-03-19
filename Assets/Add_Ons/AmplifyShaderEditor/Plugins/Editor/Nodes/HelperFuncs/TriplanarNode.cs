@@ -39,6 +39,8 @@ namespace AmplifyShaderEditor
 		[SerializeField]
 		private TexturePropertyNode m_botTexture;
 
+		bool m_texturesInitialize = false;
+
 		[SerializeField]
 		private string m_tempTopInspectorName = string.Empty;
 		[SerializeField]
@@ -224,6 +226,10 @@ namespace AmplifyShaderEditor
 		public override void SetMaterialMode( Material mat, bool fetchMaterialValues )
 		{
 			base.SetMaterialMode( mat, fetchMaterialValues );
+
+			if( !m_texturesInitialize )
+				return;
+
 			m_topTexture.SetMaterialMode( mat, fetchMaterialValues );
 			m_midTexture.SetMaterialMode( mat, fetchMaterialValues );
 			m_botTexture.SetMaterialMode( mat, fetchMaterialValues );
@@ -231,38 +237,43 @@ namespace AmplifyShaderEditor
 
 		public void Init()
 		{
+			if( m_texturesInitialize )
+				return;
+			else
+				m_texturesInitialize = true;
+
 			// Top
 			if( m_topTexture == null )
 			{
 				m_topTexture = ScriptableObject.CreateInstance<TexturePropertyNode>();
-				m_topTexture.ContainerGraph = ContainerGraph;
-				m_topTexture.CustomPrefix = "Top Texture ";
-				m_topTexture.UniqueId = UniqueId;
-				m_topTexture.DrawAutocast = false;
-				m_topTexture.CurrentParameterType = PropertyType.Property;
 			}
+			m_topTexture.ContainerGraph = ContainerGraph;
+			m_topTexture.CustomPrefix = "Top Texture ";
+			m_topTexture.UniqueId = UniqueId;
+			m_topTexture.DrawAutocast = false;
+			m_topTexture.CurrentParameterType = PropertyType.Property;
 
 			// Mid
 			if( m_midTexture == null )
 			{
 				m_midTexture = ScriptableObject.CreateInstance<TexturePropertyNode>();
-				m_midTexture.ContainerGraph = ContainerGraph;
-				m_midTexture.CustomPrefix = "Mid Texture ";
-				m_midTexture.UniqueId = UniqueId;
-				m_midTexture.DrawAutocast = false;
-				m_midTexture.CurrentParameterType = PropertyType.Property;
 			}
+			m_midTexture.ContainerGraph = ContainerGraph;
+			m_midTexture.CustomPrefix = "Mid Texture ";
+			m_midTexture.UniqueId = UniqueId;
+			m_midTexture.DrawAutocast = false;
+			m_midTexture.CurrentParameterType = PropertyType.Property;
 
 			// Bot
 			if( m_botTexture == null )
 			{
 				m_botTexture = ScriptableObject.CreateInstance<TexturePropertyNode>();
-				m_botTexture.ContainerGraph = ContainerGraph;
-				m_botTexture.CustomPrefix = "Bot Texture ";
-				m_botTexture.UniqueId = UniqueId;
-				m_botTexture.DrawAutocast = false;
-				m_botTexture.CurrentParameterType = PropertyType.Property;
 			}
+			m_botTexture.ContainerGraph = ContainerGraph;
+			m_botTexture.CustomPrefix = "Bot Texture ";
+			m_botTexture.UniqueId = UniqueId;
+			m_botTexture.DrawAutocast = false;
+			m_botTexture.CurrentParameterType = PropertyType.Property;
 
 			if( m_materialMode )
 				SetDelayedMaterialMode( ContainerGraph.CurrentMaterial );
@@ -549,7 +560,7 @@ namespace AmplifyShaderEditor
 		{
 			base.OnEnable();
 			//if( !m_afterDeserialize )
-				Init(); //Generate texture properties
+				//Init(); //Generate texture properties
 			//else
 				//m_afterDeserialize = false;
 
@@ -574,8 +585,13 @@ namespace AmplifyShaderEditor
 		//	m_afterDeserialize = true;
 		//}
 
-		public override void OnNodeLayout( DrawInfo drawInfo )
+		
+		public override void OnNodeLogicUpdate( DrawInfo drawInfo )
 		{
+			base.OnNodeLogicUpdate( drawInfo );
+
+			Init();
+
 			if( m_topTexture.ReRegisterName )
 			{
 				m_topTexture.ReRegisterName = false;
@@ -605,7 +621,10 @@ namespace AmplifyShaderEditor
 				m_botTexture.CheckDelayedDirtyProperty();
 				m_botTexture.CheckPropertyFromInspector();
 			}
+		}
 
+		public override void OnNodeLayout( DrawInfo drawInfo )
+		{
 			base.OnNodeLayout( drawInfo );
 
 			m_allPicker = m_previewRect;
@@ -1239,7 +1258,7 @@ namespace AmplifyShaderEditor
 		{
 			base.RefreshExternalReferences();
 
-			//Init();
+			Init();
 
 			ReadPropertiesData();
 

@@ -905,8 +905,15 @@ namespace AmplifyShaderEditor
 				if( isScaledNormal )
 				{
 					string scaleValue = m_normalPort.GeneratePortInstructions( ref dataCollector );
-					dataCollector.AddToIncludes( UniqueId, Constants.UnityStandardUtilsLibFuncs );
-					m_normalMapUnpackMode = "UnpackScaleNormal( {0} ," + scaleValue + " )";
+					if( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
+					{
+						m_normalMapUnpackMode = "UnpackNormalScale( {0} ," + scaleValue + " )";
+					}
+					else
+					{
+						dataCollector.AddToIncludes( UniqueId, Constants.UnityStandardUtilsLibFuncs );
+						m_normalMapUnpackMode = "UnpackScaleNormal( {0} ," + scaleValue + " )";
+					}
 				}
 				else
 				{
@@ -1328,11 +1335,11 @@ namespace AmplifyShaderEditor
 					string uvName = string.Empty;
 					if( dataCollector.TemplateDataCollectorInstance.HasUV( m_textureCoordSet ) )
 					{
-						uvName = dataCollector.TemplateDataCollectorInstance.GetUVName( m_textureCoordSet );
+						uvName = dataCollector.TemplateDataCollectorInstance.GetUVName( m_textureCoordSet, m_uvPort.DataType );
 					}
 					else
 					{
-						uvName = dataCollector.TemplateDataCollectorInstance.RegisterUV( m_textureCoordSet );
+						uvName = dataCollector.TemplateDataCollectorInstance.RegisterUV( m_textureCoordSet, m_uvPort.DataType );
 					}
 
 					string attr = GetPropertyValue();
@@ -1451,9 +1458,9 @@ namespace AmplifyShaderEditor
 				if( dataCollector.MasterNodeCategory == AvailableShaderTypes.Template )
 				{
 					if( dataCollector.TemplateDataCollectorInstance.HasUV( m_textureCoordSet ) )
-						coordInput = dataCollector.TemplateDataCollectorInstance.GetUVName( m_textureCoordSet );
+						coordInput = dataCollector.TemplateDataCollectorInstance.GetUVName( m_textureCoordSet, m_uvPort.DataType );
 					else
-						coordInput = dataCollector.TemplateDataCollectorInstance.RegisterUV( m_textureCoordSet );
+						coordInput = dataCollector.TemplateDataCollectorInstance.RegisterUV( m_textureCoordSet, m_uvPort.DataType );
 				}
 
 				if( !scaleOffset )

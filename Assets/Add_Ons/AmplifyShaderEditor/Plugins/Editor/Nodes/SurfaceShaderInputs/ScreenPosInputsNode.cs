@@ -90,19 +90,30 @@ namespace AmplifyShaderEditor
 				base.GenerateShaderForOutput( outputId, ref dataCollector, ignoreLocalVar );
 
 			string screenPos = string.Empty;
-			if( dataCollector.IsTemplate )
+			if( m_outputTypeInt == 0 )
 			{
-				screenPos = dataCollector.TemplateDataCollectorInstance.GetScreenPos();
+				if( dataCollector.IsTemplate )
+				{
+					screenPos = dataCollector.TemplateDataCollectorInstance.GetScreenPosNormalized();
+				}
+				else
+				{
+					screenPos = GeneratorUtils.GenerateScreenPositionNormalized( ref dataCollector, UniqueId, m_currentPrecisionType, false );
+				}
 			}
 			else
 			{
-				screenPos = GeneratorUtils.GenerateScreenPosition( ref dataCollector, UniqueId, m_currentPrecisionType, false );
+				if( dataCollector.IsTemplate )
+				{
+					screenPos = dataCollector.TemplateDataCollectorInstance.GetScreenPos();
+				}
+				else
+				{
+					screenPos = GeneratorUtils.GenerateScreenPosition( ref dataCollector, UniqueId, m_currentPrecisionType, false );
+				}
 			}
-
-			if( m_outputTypeInt == 0 )
-			{
-				screenPos = GeneratorUtils.GenerateScreenPositionNormalized( ref dataCollector, UniqueId, m_currentPrecisionType, false );
-			}
+			
+			
 
 			m_outputPorts[ 0 ].SetLocalValue( screenPos );
 			return GetOutputVectorItem( 0, outputId, screenPos );

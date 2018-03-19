@@ -86,7 +86,7 @@ namespace AmplifyShaderEditor
 		{
 			if( dataCollector.IsTemplate )
 			{
-				string varName = ( m_viewDirSpace == ViewSpace.World ) ? dataCollector.TemplateDataCollectorInstance.GetNormalizedViewDir() :
+				string varName = ( m_viewDirSpace == ViewSpace.World ) ? dataCollector.TemplateDataCollectorInstance.GetViewDir() :
 																		dataCollector.TemplateDataCollectorInstance.GetTangentViewDir( m_currentPrecisionType );
 				return GetOutputVectorItem( 0, outputId, varName );
 			}
