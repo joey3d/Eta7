@@ -207,6 +207,8 @@ ModelImporter:
     100398: pPlane317
     100400: pPlane319
     100402: pPlane320
+    100404: pPlane323
+    100406: pPlane324
     400000: //RootNode
     400002: pCube1
     400004: pPlane10
@@ -409,6 +411,8 @@ ModelImporter:
     400398: pPlane317
     400400: pPlane319
     400402: pPlane320
+    400404: pPlane323
+    400406: pPlane324
     2100000: lambert1
     2300000: pCube1
     2300002: pPlane10
@@ -611,6 +615,8 @@ ModelImporter:
     2300396: pPlane317
     2300398: pPlane319
     2300400: pPlane320
+    2300402: pPlane323
+    2300404: pPlane324
     3300000: pCube1
     3300002: pPlane10
     3300004: pPlane8
@@ -812,6 +818,8 @@ ModelImporter:
     3300396: pPlane317
     3300398: pPlane319
     3300400: pPlane320
+    3300402: pPlane323
+    3300404: pPlane324
     4300000: pCube1
     4300002: pPlane8
     4300004: pPlane9
@@ -1013,6 +1021,8 @@ ModelImporter:
     4300396: pPlane317
     4300398: pPlane319
     4300400: pPlane320
+    4300402: pPlane323
+    4300404: pPlane324
   externalObjects: {}
   materials:
     importMaterials: 0
@@ -1051,7 +1061,7 @@ ModelImporter:
     importCameras: 1
     importLights: 1
     swapUVChannels: 0
-    generateSecondaryUV: 0
+    generateSecondaryUV: 1
     useFileUnits: 1
     optimizeMeshForGPU: 1
     keepQuads: 0
