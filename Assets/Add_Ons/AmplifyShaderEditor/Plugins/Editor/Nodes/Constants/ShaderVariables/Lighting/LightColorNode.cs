@@ -36,14 +36,26 @@ namespace AmplifyShaderEditor
 
 		public override string GenerateShaderForOutput( int outputId, ref MasterNodeDataCollector dataCollector, bool ignoreLocalvar )
 		{
-			if( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType != TemplateSRPType.Lightweight )
+			if( dataCollector.IsTemplate && !dataCollector.IsLightweight )
 				dataCollector.AddToIncludes( -1, Constants.UnityLightingLib );
 
 			base.GenerateShaderForOutput( outputId, ref dataCollector, ignoreLocalvar );
 
 			string finalVar = m_lightColorValue;
-			if( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
+			if( dataCollector.IsTemplate && dataCollector.IsLightweight )
 				finalVar = "_MainLightColor";
+			else
+			{
+				dataCollector.AddLocalVariable( UniqueId, "#if defined(LIGHTMAP_ON) && UNITY_VERSION < 560 //aselc" );
+				dataCollector.AddLocalVariable( UniqueId, CurrentPrecisionType, WirePortDataType.FLOAT4, "ase_lightColor", "0" );
+				dataCollector.AddLocalVariable( UniqueId, "#else //aselc" );
+				dataCollector.AddLocalVariable( UniqueId, CurrentPrecisionType, WirePortDataType.FLOAT4, "ase_lightColor", finalVar );
+				dataCollector.AddLocalVariable( UniqueId, "#endif //aselc" );
+				finalVar = "ase_lightColor";
+			}
+			//else if( ContainerGraph.CurrentStandardSurface.CurrentLightingModel == StandardShaderLightModel.CustomLighting )
+			//	finalVar = "gi.light.color";
+
 			switch( outputId )
 			{
 				default:

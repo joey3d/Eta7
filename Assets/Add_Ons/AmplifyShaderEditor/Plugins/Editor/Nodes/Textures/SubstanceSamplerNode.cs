@@ -477,9 +477,9 @@ namespace AmplifyShaderEditor
 				return "(0).xxxx";
 			}
 
-			if( m_outputPorts[ outputId ].IsLocalValue )
+			if( m_outputPorts[ outputId ].IsLocalValue( dataCollector.PortCategory ) )
 			{
-				return m_outputPorts[ outputId ].LocalValue;
+				return m_outputPorts[ outputId ].LocalValue( dataCollector.PortCategory );
 			}
 
 			Texture[] textures = m_proceduralMaterial.GetGeneratedTextures();
@@ -507,7 +507,7 @@ namespace AmplifyShaderEditor
 			dataCollector.AddPropertyNode( this );
 			RegisterLocalVariable( outputId, value, ref dataCollector, name );
 
-			return m_outputPorts[ outputId ].LocalValue;
+			return m_outputPorts[ outputId ].LocalValue( dataCollector.PortCategory );
 		}
 
 		public string GetUVCoords( ref MasterNodeDataCollector dataCollector, bool ignoreLocalVar, string propertyName )

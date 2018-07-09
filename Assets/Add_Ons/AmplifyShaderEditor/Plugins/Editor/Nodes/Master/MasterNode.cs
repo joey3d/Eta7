@@ -33,6 +33,9 @@ namespace AmplifyShaderEditor
 	[Serializable]
 	public class MasterNode : OutputNode
 	{
+		protected const string CustomInspectorStr = "Custom Editor";
+		protected const string CustomInspectorFormat = "CustomEditor \"{0}\"";
+
 		private const string PropertyOrderFoldoutStr = " Material Properties";
 		private const string PropertyOrderTemplateFoldoutStr = "Material Properties";
 
@@ -142,17 +145,17 @@ namespace AmplifyShaderEditor
 
 		void InitAvailableCategories()
 		{
-			int templateCount = TemplatesManager.TemplateCount;
+			int templateCount =  m_containerGraph.ParentWindow.TemplatesManagerInstance.TemplateCount;
 			m_availableCategories = new MasterNodeCategoriesData[ templateCount + 1 ];
 			m_availableCategoryLabels = new GUIContent[ templateCount + 1 ];
 
 			m_availableCategories[ 0 ] = new MasterNodeCategoriesData( AvailableShaderTypes.SurfaceShader, string.Empty );
-			m_availableCategoryLabels[ 0 ] = new GUIContent( "Surface Shader" );
+			m_availableCategoryLabels[ 0 ] = new GUIContent( "Surface" );
 
 			for( int i = 0; i < templateCount; i++ )
 			{
 				int idx = i + 1;
-				TemplateDataParent templateData = TemplatesManager.GetTemplate( i );
+				TemplateDataParent templateData = m_containerGraph.ParentWindow.TemplatesManagerInstance.GetTemplate( i );
 				m_availableCategories[ idx ] = new MasterNodeCategoriesData( AvailableShaderTypes.Template, templateData.GUID );
 				m_availableCategoryLabels[ idx ] = new GUIContent( templateData.Name );
 			}
@@ -209,6 +212,18 @@ namespace AmplifyShaderEditor
 			}
 		}
 
+		protected void DrawCustomInspector( )
+		{
+			EditorGUILayout.BeginHorizontal();
+			m_customInspectorName = EditorGUILayoutTextField( CustomInspectorStr, m_customInspectorName );
+			if( GUILayoutButton( string.Empty, UIUtils.GetCustomStyle( CustomStyle.ResetToDefaultInspectorButton ), GUILayout.Width( 15 ), GUILayout.Height( 15 ) ) )
+			{
+				GUIUtility.keyboardControl = 0;
+				m_customInspectorName = Constants.DefaultCustomInspector;
+			}
+			EditorGUILayout.EndHorizontal();
+		}
+
 		protected void DrawShaderName()
 		{
 			EditorGUI.BeginChangeCheck();
@@ -224,6 +239,7 @@ namespace AmplifyShaderEditor
 					newShaderName = DefaultShaderName;
 				}
 				ShaderName = newShaderName;
+				ContainerGraph.ParentWindow.UpdateTabTitle( ShaderName, true );
 			}
 			m_shaderNameContent.tooltip = m_shaderName;
 		}
@@ -343,7 +359,7 @@ namespace AmplifyShaderEditor
 
 		protected void DrawInstancedIcon( DrawInfo drawInfo )
 		{
-			if( drawInfo.CurrentEventType != EventType.Repaint )
+			if( m_gpuInstanceOffTex == null || drawInfo.CurrentEventType != EventType.Repaint )
 				return;
 
 			m_masterNodeIconCoords = m_globalPosition;
@@ -377,6 +393,10 @@ namespace AmplifyShaderEditor
 			{
 				m_shaderModelIdx = Convert.ToInt32( GetCurrentParam( ref nodeParams ) );
 				m_currentPrecisionType = (PrecisionType)Enum.Parse( typeof( PrecisionType ), GetCurrentParam( ref nodeParams ) );
+				if( m_currentPrecisionType == PrecisionType.Fixed )
+				{
+					m_currentPrecisionType = PrecisionType.Half;
+				}
 			}
 
 			if( UIUtils.CurrentShaderVersion() > 2404 )
@@ -417,6 +437,18 @@ namespace AmplifyShaderEditor
 		{
 			if( OnShaderUpdatedEvent != null )
 				OnShaderUpdatedEvent( this );
+		}
+
+		public void RegisterStandaloneFuntions()
+		{
+			List<CustomExpressionNode> nodes = m_containerGraph.CustomExpressionOnFunctionMode.NodesList;
+			int count = nodes.Count;
+			bool iAmTemplate = this is TemplateMultiPassMasterNode;
+			for( int i = 0; i < count; i++ )
+			{
+				if( nodes[ i ].ConnStatus == NodeConnectionStatus.Not_Connected )
+					m_currentDataCollector.AddFunction( nodes[ i ].OutputId, nodes[ i ].EncapsulatedCode( iAmTemplate ) );
+			}
 		}
 
 		// What operation this node does
@@ -538,20 +570,20 @@ namespace AmplifyShaderEditor
 			EditorGUI.BeginChangeCheck();
 			if( style )
 			{
-				ContainerGraph.ParentWindow.ExpandedProperties = GUILayoutToggle( ContainerGraph.ParentWindow.ExpandedProperties, PropertyOrderFoldoutStr, UIUtils.MenuItemToggleStyle );
+				ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedProperties = GUILayoutToggle( ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedProperties, PropertyOrderFoldoutStr, UIUtils.MenuItemToggleStyle );
 			}
 			else
 			{
-				ContainerGraph.ParentWindow.ExpandedProperties = GUILayoutToggle( ContainerGraph.ParentWindow.ExpandedProperties, PropertyOrderTemplateFoldoutStr, UIUtils.MenuItemToggleStyle );
+				ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedProperties = GUILayoutToggle( ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedProperties, PropertyOrderTemplateFoldoutStr, UIUtils.MenuItemToggleStyle );
 			}
 
 			if( EditorGUI.EndChangeCheck() )
 			{
-				EditorPrefs.SetBool( "ExpandedProperties", ContainerGraph.ParentWindow.ExpandedProperties );
+				EditorPrefs.SetBool( "ExpandedProperties", ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedProperties );
 			}
 
 			EditorGUILayout.EndHorizontal();
-			if( !ContainerGraph.ParentWindow.ExpandedProperties )
+			if( !ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedProperties )
 				return;
 
 			cachedColor = GUI.color;
@@ -814,6 +846,7 @@ namespace AmplifyShaderEditor
 				m_sizeIsDirty = true;
 			}
 		}
+		public string CustomInspectorFormatted { get { return string.Format( CustomInspectorFormat, m_customInspectorName ); } }
 		public string CroppedShaderName { get { return m_croppedShaderName; } }
 		public AvailableShaderTypes CurrentMasterNodeCategory { get { return ( m_masterNodeCategory == 0 ) ? AvailableShaderTypes.SurfaceShader : AvailableShaderTypes.Template; } }
 		public int CurrentMasterNodeCategoryIdx { get { return m_masterNodeCategory; } }

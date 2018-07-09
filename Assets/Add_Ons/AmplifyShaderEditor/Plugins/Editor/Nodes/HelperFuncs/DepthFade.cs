@@ -33,8 +33,8 @@ namespace AmplifyShaderEditor
 				return "0";
 			}
 
-			if( m_outputPorts[ 0 ].IsLocalValue )
-				return GetOutputColorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+			if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+				return GetOutputColorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 
 			if( !( dataCollector.IsTemplate && dataCollector.IsLightweight ) )
 				dataCollector.AddToIncludes( UniqueId, Constants.UnityCgLibFuncs );
@@ -67,7 +67,7 @@ namespace AmplifyShaderEditor
 			else
 				dataCollector.AddLocalVariable( UniqueId, "float distanceDepth" + OutputId + " = abs( ( screenDepth" + OutputId + " - LinearEyeDepth( " + screenPosNorm + ".z ) ) / ( " + distance + " ) );" );
 
-			m_outputPorts[ 0 ].SetLocalValue( "distanceDepth" + OutputId );
+			m_outputPorts[ 0 ].SetLocalValue( "distanceDepth" + OutputId, dataCollector.PortCategory );
 			return GetOutputColorItem( 0, outputId, "distanceDepth" + OutputId );
 		}
 

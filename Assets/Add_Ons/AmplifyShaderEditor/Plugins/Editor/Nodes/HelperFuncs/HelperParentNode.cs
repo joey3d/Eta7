@@ -31,8 +31,8 @@ namespace AmplifyShaderEditor
 		}
 		public override string GenerateShaderForOutput( int outputId, ref MasterNodeDataCollector dataCollector, bool ignoreLocalvar )
 		{
-			if( m_outputPorts[ 0 ].IsLocalValue )
-				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+			if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 
 			if( !( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight ) )
 				dataCollector.AddToIncludes( UniqueId, Constants.UnityCgLibFuncs );
@@ -59,7 +59,7 @@ namespace AmplifyShaderEditor
 				finalResult = string.Format( m_funcLWFormatOverride, concatResults );
 			RegisterLocalVariable( 0, finalResult, ref dataCollector, m_localVarName );
 
-			return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+			return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 		}
 	}
 }

@@ -356,7 +356,7 @@ namespace AmplifyShaderEditor
 			// Fixed Title ( only renders when not editing )
 			if ( !m_isEditing && !m_startEditing && ContainerGraph.LodLevel <= ParentGraph.NodeLOD.LOD3 )
 			{
-				GUI.Label( m_commentArea, m_commentText, UIUtils.GetCustomStyle( CustomStyle.CommentaryTitle ) );
+				GUI.Label( m_commentArea, m_commentText, UIUtils.CommentaryTitle );
 			}
 
 			// Buttons
@@ -407,7 +407,7 @@ namespace AmplifyShaderEditor
 				{
 					EditorGUI.BeginChangeCheck();
 					GUI.SetNextControlName( m_focusName );
-					m_commentText = EditorGUITextField( m_commentArea, string.Empty, m_commentText, UIUtils.GetCustomStyle( CustomStyle.CommentaryTitle ) );
+					m_commentText = EditorGUITextField( m_commentArea, string.Empty, m_commentText, UIUtils.CommentaryTitle );
 					if ( EditorGUI.EndChangeCheck() )
 					{
 						m_checkCommentText = true;

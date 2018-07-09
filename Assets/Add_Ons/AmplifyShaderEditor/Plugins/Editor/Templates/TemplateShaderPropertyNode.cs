@@ -216,6 +216,7 @@ namespace AmplifyShaderEditor
 			else
 			{
 				if( m_shaderProperties != null &&
+					m_shaderProperties.Count > 0 && 
 					m_shaderProperties.Count > m_currentPropertyIdx &&
 					m_shaderProperties[ m_currentPropertyIdx ].PropertyType == PropertyType.Global &&
 					m_showPreview )
@@ -334,7 +335,7 @@ namespace AmplifyShaderEditor
 			if( m_containerGraph.CurrentCanvasMode != NodeAvailability.TemplateShader )
 				return;
 
-			if( m_shaderProperties == null || m_shaderProperties.Count == 0 )
+			if( m_shaderProperties == null )
 			{
 				MasterNode masterNode = m_containerGraph.CurrentMasterNode;
 				if( masterNode.CurrentMasterNodeCategory == AvailableShaderTypes.Template )
@@ -394,6 +395,7 @@ namespace AmplifyShaderEditor
 
 		void UpdateFromId()
 		{
+
 			if( m_shaderProperties != null )
 			{
 				if( m_shaderProperties.Count == 0 )
@@ -404,11 +406,16 @@ namespace AmplifyShaderEditor
 					m_headerColor = UIUtils.GetColorFromCategory( "Default" );
 					m_content.text = "None";
 					m_additionalContent.text = string.Empty;
-					m_outputPorts[ 0 ].ChangeProperties( "None", WirePortDataType.OBJECT, false );
+					m_previewMaterialPassId = 1;
+					PreviewMaterial.SetFloat( FloatPropertyId, 0 );
+					m_showPreview = false;
+					m_drawPreviewExpander = false;
+					m_outputPorts[ 0 ].ChangeProperties( "None", WirePortDataType.FLOAT, false );
 					ConfigurePorts();
 					return;
 				}
 
+				m_drawPreviewExpander = true;
 				bool areCompatible = TemplateHelperFunctions.CheckIfCompatibles( m_outputPorts[ 0 ].DataType, m_shaderProperties[ m_currentPropertyIdx ].PropertyDataType );
 				switch( m_shaderProperties[ m_currentPropertyIdx ].PropertyDataType )
 				{
@@ -520,6 +527,12 @@ namespace AmplifyShaderEditor
 			if( dataCollector.MasterNodeCategory != AvailableShaderTypes.Template )
 			{
 				UIUtils.ShowMessage( "Template Parameter node is only intended for templates use only" );
+				return m_outputPorts[ outputId ].ErrorValue;
+			}
+
+			if( m_shaderProperties == null || m_shaderProperties.Count ==0  )
+			{
+				UIUtils.ShowMessage( "Attempting to fetch inexistant parameter on " + m_nodeAttribs.Name +" node");
 				return m_outputPorts[ outputId ].ErrorValue;
 			}
 

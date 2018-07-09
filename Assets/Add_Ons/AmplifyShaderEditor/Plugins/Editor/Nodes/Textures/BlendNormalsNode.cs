@@ -33,8 +33,8 @@ namespace AmplifyShaderEditor
 		{
 			if( !( dataCollector.IsTemplate && dataCollector.IsLightweight ) )
 				dataCollector.AddToIncludes( UniqueId, Constants.UnityStandardUtilsLibFuncs );
-			string _inputA = m_inputPorts[ 0 ].GenerateShaderForOutput( ref dataCollector, WirePortDataType.FLOAT3, ignoreLocalvar, true );
-			string _inputB = m_inputPorts[ 1 ].GenerateShaderForOutput( ref dataCollector, WirePortDataType.FLOAT3, ignoreLocalvar, true );
+			string _inputA = m_inputPorts[ 0 ].GeneratePortInstructions( ref dataCollector );
+			string _inputB = m_inputPorts[ 1 ].GeneratePortInstructions( ref dataCollector );
 			string result = "BlendNormals( " + _inputA + " , " + _inputB + " )";
 
 			if( dataCollector.IsTemplate && dataCollector.IsLightweight )

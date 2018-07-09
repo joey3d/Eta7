@@ -385,7 +385,7 @@ namespace AmplifyShaderEditor
 
 			string portProperty = string.Empty;
 			if( m_texPort.IsConnected )
-				portProperty = m_texPort.GenerateShaderForOutput( ref dataCollector, m_texPort.DataType, ignoreLocalVar );
+				portProperty = m_texPort.GeneratePortInstructions( ref dataCollector );
 
 			if( m_referenceArrayId > -1 )
 			{
@@ -399,8 +399,8 @@ namespace AmplifyShaderEditor
 			//TEMPLATES
 			if( dataCollector.MasterNodeCategory == AvailableShaderTypes.Template )
 			{
-				if( m_outputPorts[ 0 ].IsLocalValue )
-					return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+				if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+					return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 
 				string uvName = string.Empty;
 				if( dataCollector.TemplateDataCollectorInstance.HasUV( m_textureCoordChannel ) )
@@ -426,7 +426,7 @@ namespace AmplifyShaderEditor
 					{
 						dataCollector.AddLocalVariable( UniqueId, m_currentPrecisionType, m_outputPorts[ 0 ].DataType, finalTexCoordName, uvName );
 						dataCollector.AddLocalVariable( UniqueId, finalTexCoordName + ".xy", string.Format( Constants.TilingOffsetFormat, uvName + ".xy", dummyPropertyTexcoords + ".xy", dummyPropertyTexcoords + ".zw" ) + ";" );
-						m_outputPorts[ 0 ].SetLocalValue( finalTexCoordName );
+						m_outputPorts[ 0 ].SetLocalValue( finalTexCoordName, dataCollector.PortCategory );
 					}
 					else
 					{
@@ -444,7 +444,7 @@ namespace AmplifyShaderEditor
 					{
 						dataCollector.AddLocalVariable( UniqueId, m_currentPrecisionType, m_outputPorts[ 0 ].DataType, finalTexCoordName, uvName );
 						dataCollector.AddLocalVariable( UniqueId, finalTexCoordName + ".xy", string.Format( Constants.TilingOffsetFormat, uvName + ".xy", tiling, offset ) + ";" );
-						m_outputPorts[ 0 ].SetLocalValue( finalTexCoordName );
+						m_outputPorts[ 0 ].SetLocalValue( finalTexCoordName, dataCollector.PortCategory );
 					}
 					else
 					{
@@ -452,7 +452,7 @@ namespace AmplifyShaderEditor
 					}
 					//RegisterLocalVariable( 0, string.Format( Constants.TilingOffsetFormat, uvName, tiling, offset ), ref dataCollector, finalTexCoordName );
 				}
-				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 			}
 
 			//SURFACE
@@ -462,11 +462,18 @@ namespace AmplifyShaderEditor
 				propertyName = portProperty;
 			}
 
-			if( m_outputPorts[ 0 ].IsLocalValue )
-				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+			if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 
-			tiling = m_tilingPort.GenerateShaderForOutput( ref dataCollector, WirePortDataType.FLOAT2, false, true );
-			offset = m_offsetPort.GenerateShaderForOutput( ref dataCollector, WirePortDataType.FLOAT2, false, true );
+			if( !m_tilingPort.IsConnected && m_tilingPort.Vector2InternalData == Vector2.one )
+				tiling = null;
+			else
+				tiling = m_tilingPort.GeneratePortInstructions( ref dataCollector );
+
+			if( !m_offsetPort.IsConnected && m_offsetPort.Vector2InternalData == Vector2.zero )
+				offset = null;
+			else
+				offset = m_offsetPort.GeneratePortInstructions( ref dataCollector );
 			if( !string.IsNullOrEmpty( propertyName ) /*m_referenceArrayId > -1*/ )
 			{
 				////m_referenceNode = UIUtils.GetTexturePropertyNode( m_referenceArrayId );
@@ -596,7 +603,7 @@ namespace AmplifyShaderEditor
 			//}
 
 			m_outputPorts[ 0 ].SetLocalValue( m_surfaceTexcoordName, dataCollector.PortCategory );
-			return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+			return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 		}
 
 		//public string GenerateFragShaderForOutput( int outputId, ref MasterNodeDataCollector dataCollector, bool ignoreLocalVar )

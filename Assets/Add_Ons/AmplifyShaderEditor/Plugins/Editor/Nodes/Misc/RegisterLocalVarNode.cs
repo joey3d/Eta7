@@ -103,8 +103,8 @@ namespace AmplifyShaderEditor
 			{
 				m_variableName = LocalDefaultNameStr + OutputId;
 			}
-
-			if( UIUtils.IsLocalvariableNameAvailable( m_variableName ) )
+			bool isNumericName = UIUtils.IsNumericName( m_variableName );
+			if( !isNumericName && UIUtils.IsLocalvariableNameAvailable( m_variableName ) )
 			{
 				UIUtils.ReleaseLocalVariableName( UniqueId, m_oldName );
 				UIUtils.RegisterLocalVariableName( UniqueId, m_variableName );
@@ -115,6 +115,11 @@ namespace AmplifyShaderEditor
 			}
 			else
 			{
+				//if( isNumericName )
+				//{
+				//	UIUtils.ShowMessage( "Local variable name cannot start or be numerical values" );
+				//}
+
 				m_variableName = m_oldName;
 				UIUtils.UpdateLocalVarDataNode( UniqueId, m_variableName );
 			}
@@ -201,13 +206,13 @@ namespace AmplifyShaderEditor
 
 		public override string GenerateShaderForOutput( int outputId, ref MasterNodeDataCollector dataCollector, bool ignoreLocalvar )
 		{
-			if( m_outputPorts[ 0 ].IsLocalValue )
+			if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
 			{
-				return m_outputPorts[ 0 ].LocalValue;
+				return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 			}
 			string result = m_inputPorts[ 0 ].GeneratePortInstructions( ref dataCollector );
 			RegisterLocalVariable( 0, result, ref dataCollector, m_variableName + OutputId );
-			return m_outputPorts[ 0 ].LocalValue;
+			return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 		}
 
 		public override void ReadFromString( ref string[] nodeParams )

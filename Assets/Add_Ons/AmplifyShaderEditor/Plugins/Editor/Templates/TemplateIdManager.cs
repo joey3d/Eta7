@@ -74,14 +74,37 @@ namespace AmplifyShaderEditor
 
 			m_registeredIds.Clear();
 			m_registeredIds = null;
-			m_registeredIdsDict.Clear();
-			m_registeredIdsDict = null;
+			if( m_registeredIdsDict != null )
+			{
+				m_registeredIdsDict.Clear();
+				m_registeredIdsDict = null;
+			}
+		}
+
+		void RefreshIds()
+		{
+			if( m_registeredIdsDict == null )
+			{
+				m_registeredIdsDict = new Dictionary<string, TemplateId>();
+			}
+
+			if( m_registeredIdsDict.Count != m_registeredIds.Count )
+			{
+				m_registeredIdsDict.Clear();
+				int count = m_registeredIds.Count;
+				for( int i = 0; i < count; i++ )
+				{
+					m_registeredIdsDict.Add( m_registeredIds[ i ].UniqueID, m_registeredIds[ i ] );
+				}
+			}
 		}
 
 		public void RegisterId( int bodyIdx, string uniqueID, string tag )
 		{
 			if( bodyIdx < 0 )
 				return;
+
+			RefreshIds();
 
 			TemplateId templateId = new TemplateId( bodyIdx, uniqueID, tag );
 			m_registeredIds.Add( templateId );
@@ -95,18 +118,7 @@ namespace AmplifyShaderEditor
 
 		public void SetReplacementText( string uniqueId, string replacementText )
 		{
-			if( m_registeredIdsDict == null )
-				m_registeredIdsDict = new Dictionary<string, TemplateId>();
-
-			if( m_registeredIdsDict.Count != m_registeredIds.Count )
-			{
-				m_registeredIdsDict.Clear();
-				int count = m_registeredIds.Count;
-				for( int i = 0; i < count; i++ )
-				{
-					m_registeredIdsDict.Add( m_registeredIds[ i ].UniqueID, m_registeredIds[ i ] );
-				}
-			}
+			RefreshIds();
 
 			if( m_registeredIdsDict.ContainsKey( uniqueId ) && m_registeredIdsDict[ uniqueId ].StartIdx >= 0 )
 				m_registeredIdsDict[ uniqueId ].SetReplacementText( replacementText );
@@ -164,8 +176,20 @@ namespace AmplifyShaderEditor
 		public void Reset()
 		{
 			m_registeredIds.Clear();
-			m_registeredIdsDict.Clear();
+			if( m_registeredIdsDict == null )
+			{
+				m_registeredIdsDict = new Dictionary<string, TemplateId>();
+			}
+			else
+			{
+				m_registeredIdsDict.Clear();
+			}
 		}
 
+		public string ShaderBody
+		{
+			get { return m_shaderBody; }
+			set { m_shaderBody = value; }
+		}
 	}
 }

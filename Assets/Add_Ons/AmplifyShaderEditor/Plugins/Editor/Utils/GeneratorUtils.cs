@@ -65,6 +65,8 @@ namespace AmplifyShaderEditor
 			if( dataCollector.IsTemplate )
 				return dataCollector.TemplateDataCollectorInstance.GetWorldPos();
 
+			dataCollector.AddToInput( -1, SurfaceInputs.WORLD_POS );
+
 			string result = Constants.InputVarStr + ".worldPos";
 
 			if( dataCollector.PortCategory == MasterNodePortCategory.Vertex || dataCollector.PortCategory == MasterNodePortCategory.Tessellation )
@@ -103,7 +105,7 @@ namespace AmplifyShaderEditor
 		static public string GenerateWorldNormal( ref MasterNodeDataCollector dataCollector, int uniqueId, bool normalize = false )
 		{
 			if( dataCollector.IsTemplate )
-				return dataCollector.TemplateDataCollectorInstance.GetWorldNormal( UIUtils.CurrentWindow.CurrentGraph.CurrentPrecision,true, MasterNodePortCategory.Fragment, normalize );
+				return dataCollector.TemplateDataCollectorInstance.GetWorldNormal( UIUtils.CurrentWindow.CurrentGraph.CurrentPrecision, true, MasterNodePortCategory.Fragment, normalize );
 
 			string precisionType = UIUtils.PrecisionWirePortToCgType( UIUtils.CurrentWindow.CurrentGraph.CurrentPrecision, WirePortDataType.FLOAT3 );
 			string result = string.Empty;
@@ -222,7 +224,7 @@ namespace AmplifyShaderEditor
 				else if( size == WirePortDataType.FLOAT4 )
 					sizeDif = "4";
 
-				string dummyPropUV = "_tex"+ sizeDif + "coord" + indexStr;
+				string dummyPropUV = "_tex" + sizeDif + "coord" + indexStr;
 				string dummyUV = "uv" + indexStr + dummyPropUV;
 
 				dataCollector.AddToProperties( uniqueId, "[HideInInspector] " + dummyPropUV + "( \"\", 2D ) = \"white\" {}", 100 );
@@ -273,20 +275,24 @@ namespace AmplifyShaderEditor
 
 				result = "uv" + propertyName;
 			}
-			else if( !string.IsNullOrEmpty( scale ) && !string.IsNullOrEmpty( offset ) )
+			else if( !string.IsNullOrEmpty( scale ) || !string.IsNullOrEmpty( offset ) )
 			{
 				if( size > WirePortDataType.FLOAT2 )
 				{
 					dataCollector.UsingHigherSizeTexcoords = true;
 					dataCollector.AddToLocalVariables( dataCollector.PortCategory, uniqueId, PrecisionType.Float, size, varName, result );
-					dataCollector.AddToLocalVariables( dataCollector.PortCategory, uniqueId, varName + ".xy = " + result + ".xy * " + scale + " + " + offset + ";" );
+					dataCollector.AddToLocalVariables( dataCollector.PortCategory, uniqueId, varName + ".xy = " + result + ".xy" + ( string.IsNullOrEmpty( scale ) ? "" : " * " + scale ) + ( string.IsNullOrEmpty( offset ) ? "" : " + " + offset ) + ";" );
 				}
 				else
 				{
-					dataCollector.AddToLocalVariables( dataCollector.PortCategory, uniqueId, PrecisionType.Float, size, varName, result + " * " + scale + " + " + offset );
+					dataCollector.AddToLocalVariables( dataCollector.PortCategory, uniqueId, PrecisionType.Float, size, varName, result + ( string.IsNullOrEmpty( scale ) ? "" : " * " + scale ) + ( string.IsNullOrEmpty( offset ) ? "" : " + " + offset ) );
 				}
 
 				result = varName;
+			} else if( dataCollector.PortCategory == MasterNodePortCategory.Fragment )
+			{
+				if( size > WirePortDataType.FLOAT2 )
+					dataCollector.UsingHigherSizeTexcoords = true;
 			}
 
 			return result;
@@ -515,7 +521,21 @@ namespace AmplifyShaderEditor
 
 			PrecisionType precision = UIUtils.CurrentWindow.CurrentGraph.CurrentPrecision;
 			string worldPos = GenerateWorldPosition( ref dataCollector, uniqueId );
-			dataCollector.AddLocalVariable( uniqueId, precision, WirePortDataType.FLOAT3, WorldViewDirectionStr, "normalize( UnityWorldSpaceViewDir( " + worldPos + " ) )" );
+			string safeNormalizeInstruction = string.Empty;
+			if( dataCollector.SafeNormalizeViewDir )
+			{
+				if( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
+				{
+					safeNormalizeInstruction = "SafeNormalize";
+				}
+				else
+				{
+					if( dataCollector.IsTemplate )
+						dataCollector.AddToIncludes( -1, Constants.UnityBRDFLib );
+					safeNormalizeInstruction = "Unity_SafeNormalize";
+				}
+			}
+			dataCollector.AddLocalVariable( uniqueId, precision, WirePortDataType.FLOAT3, WorldViewDirectionStr, ( dataCollector.SafeNormalizeViewDir ? safeNormalizeInstruction : "normalize" ) + "( UnityWorldSpaceViewDir( " + worldPos + " ) )" );
 
 			if( space == ViewSpace.Tangent )
 			{
@@ -554,10 +574,15 @@ namespace AmplifyShaderEditor
 		}
 
 		// LIGHT DIRECTION WORLD
-		static public string GenerateWorldLightDirection( ref MasterNodeDataCollector dataCollector, int uniqueId, PrecisionType precision, string worldPos )
+		static public string GenerateWorldLightDirection( ref MasterNodeDataCollector dataCollector, int uniqueId, PrecisionType precision )
 		{
 			dataCollector.AddToIncludes( uniqueId, Constants.UnityCgLibFuncs );
-			dataCollector.AddLocalVariable( uniqueId, precision, WirePortDataType.FLOAT3, WorldLightDirStr, "normalize( UnityWorldSpaceLightDir( " + worldPos + " ) )" );
+			string worldPos = GeneratorUtils.GenerateWorldPosition( ref dataCollector, uniqueId );
+			dataCollector.AddLocalVariable( uniqueId, "#if defined(LIGHTMAP_ON) && UNITY_VERSION < 560 //aseld" );
+			dataCollector.AddLocalVariable( uniqueId, precision, WirePortDataType.FLOAT3, WorldLightDirStr, "0" );
+			dataCollector.AddLocalVariable( uniqueId, "#else //aseld" );
+			dataCollector.AddLocalVariable( uniqueId, precision, WirePortDataType.FLOAT3, WorldLightDirStr, ( dataCollector.SafeNormalizeLightDir ? "Unity_SafeNormalize" : "normalize" ) + "( UnityWorldSpaceLightDir( " + worldPos + " ) )" );
+			dataCollector.AddLocalVariable( uniqueId, "#endif //aseld" );
 			return WorldLightDirStr;
 		}
 

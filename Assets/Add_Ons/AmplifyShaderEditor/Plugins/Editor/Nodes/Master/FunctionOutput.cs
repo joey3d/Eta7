@@ -39,8 +39,9 @@ namespace AmplifyShaderEditor
 		private Rect m_titleClickArea;
 		private bool m_showTitleWhenNotEditing = true;
 
+		[SerializeField]
+		private string m_subTitle = string.Empty;
 
-		
 
 		void CommonInit()
 		{
@@ -256,10 +257,16 @@ namespace AmplifyShaderEditor
 
 			if( m_function == null )
 				m_function = UIUtils.CurrentWindow.OpenedShaderFunction;
+
+			if( m_isMainOutputNode && m_function != null )
+			{
+				m_function.UpdateDirectivesList();
+			}
+
 			SetTitleText( m_outputName );
 			UIUtils.UpdateFunctionOutputData( UniqueId, m_outputName );
 		}
-
+		
 		public AmplifyShaderFunction Function
 		{
 			get { return m_function; }
@@ -275,6 +282,12 @@ namespace AmplifyShaderEditor
 		{
 			get { return m_orderIndex; }
 			set { m_orderIndex = value; }
+		}
+
+		public string SubTitle
+		{
+			get { return m_subTitle; }
+			set { m_subTitle = value; }
 		}
 
 		public bool PreviewNode

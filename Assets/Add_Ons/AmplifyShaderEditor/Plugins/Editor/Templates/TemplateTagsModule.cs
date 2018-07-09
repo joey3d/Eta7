@@ -13,7 +13,7 @@ namespace AmplifyShaderEditor
 		private const string TagValueStr = "Value";
 
 		private const float ShaderKeywordButtonLayoutWidth = 15;
-		private ParentNode m_currentOwner;
+		private UndoParentNode m_currentOwner;
 
 		[SerializeField]
 		private List<CustomTagData> m_availableTags = new List<CustomTagData>();
@@ -56,21 +56,24 @@ namespace AmplifyShaderEditor
 
 		public override void ShowUnreadableDataMessage( ParentNode owner )
 		{
-			NodeUtils.DrawPropertyGroup( ref m_foldoutValue, CustomTagsStr, base.ShowUnreadableDataMessage );
+			bool foldout = owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedCustomTags;
+			NodeUtils.DrawPropertyGroup( ref foldout, CustomTagsStr, base.ShowUnreadableDataMessage );
+			owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedCustomTags = foldout;
 		}
 
-		public override void Draw( ParentNode owner, bool style = true )
+		public override void Draw( UndoParentNode owner, bool style = true )
 		{
 			m_currentOwner = owner;
-			
+			bool foldout = owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedCustomTags;
 			if( style )
 			{
-				NodeUtils.DrawPropertyGroup( ref m_foldoutValue, CustomTagsStr, DrawMainBody, DrawButtons );
+				NodeUtils.DrawPropertyGroup( ref foldout, CustomTagsStr, DrawMainBody, DrawButtons );
 			}
 			else
 			{
-				NodeUtils.DrawNestedPropertyGroup( ref m_foldoutValue, CustomTagsStr, DrawMainBody, DrawButtons );
+				NodeUtils.DrawNestedPropertyGroup( ref foldout, CustomTagsStr, DrawMainBody, DrawButtons );
 			}
+			owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedCustomTags = foldout;
 		}
 
 		void DrawButtons()

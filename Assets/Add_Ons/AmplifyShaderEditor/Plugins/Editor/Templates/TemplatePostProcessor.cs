@@ -9,9 +9,16 @@ namespace AmplifyShaderEditor
 	{
 		static void OnPostprocessAllAssets( string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths )
 		{
-            if ( !TemplatesManager.Initialized )
+			if( UIUtils.CurrentWindow == null )
+				return;
+
+			TemplatesManager templatesManager = UIUtils.CurrentWindow.TemplatesManagerInstance;
+			if( templatesManager == null )
+				return;
+
+			if ( !templatesManager.Initialized )
             {
-                TemplatesManager.Init();
+				templatesManager.Init();
             }
 
 			bool refreshMenuItems = false;
@@ -21,7 +28,7 @@ namespace AmplifyShaderEditor
 				{
 					refreshMenuItems = true;
 					string guid = AssetDatabase.AssetPathToGUID( importedAssets[ i ] );
-					TemplateDataParent templateData = TemplatesManager.GetTemplate( guid );
+					TemplateDataParent templateData = templatesManager.GetTemplate( guid );
 					if( templateData != null )
 					{
 						templateData.Reload();
@@ -29,11 +36,13 @@ namespace AmplifyShaderEditor
 					else
 					{
 						string name = TemplatesManager.OfficialTemplates.ContainsKey( guid ) ? TemplatesManager.OfficialTemplates[ guid ] : string.Empty;
-						TemplatesManager.AddTemplate( new TemplateMultiPass( name, guid ));
+						TemplateMultiPass mp = TemplateMultiPass.CreateInstance<TemplateMultiPass>();
+						mp.Init( name, guid );
+						templatesManager.AddTemplate( mp );
 					}
 				}
 			}
-
+			
 			if ( deletedAssets.Length > 0 )
 			{
 				if ( deletedAssets[ 0 ].IndexOf( Constants.InvalidPostProcessDatapath ) < 0 )
@@ -41,7 +50,7 @@ namespace AmplifyShaderEditor
 					for ( int i = 0; i < deletedAssets.Length; i++ )
 					{
 						string guid = AssetDatabase.AssetPathToGUID( deletedAssets[ i ] );
-						TemplateDataParent templateData = TemplatesManager.GetTemplate( guid );
+						TemplateDataParent templateData = templatesManager.GetTemplate( guid );
 						if ( templateData != null )
 						{
 							// Close any window using that template
@@ -55,7 +64,7 @@ namespace AmplifyShaderEditor
 								}
 							}
 
-							TemplatesManager.RemoveTemplate( templateData );
+							templatesManager.RemoveTemplate( templateData );
 							refreshMenuItems = true;
 						}
 					}
@@ -82,7 +91,7 @@ namespace AmplifyShaderEditor
 			if( refreshMenuItems )
 			{
 				refreshMenuItems = false;
-				TemplatesManager.CreateTemplateMenuItems();
+				templatesManager.CreateTemplateMenuItems();
 
 				int windowCount = IOUtils.AllOpenedWindows.Count;
 				for( int windowIdx = 0; windowIdx < windowCount; windowIdx++ )

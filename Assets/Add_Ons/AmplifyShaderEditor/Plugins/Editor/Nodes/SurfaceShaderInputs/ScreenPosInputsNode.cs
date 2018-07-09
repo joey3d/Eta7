@@ -81,9 +81,9 @@ namespace AmplifyShaderEditor
 
 		public override string GenerateShaderForOutput( int outputId, ref MasterNodeDataCollector dataCollector, bool ignoreLocalVar )
 		{
-			if( m_outputPorts[ 0 ].IsLocalValue )
+			if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
 			{
-				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 			}
 
 			if( dataCollector.IsFragmentCategory && !dataCollector.UsingCustomScreenPos )
@@ -115,7 +115,7 @@ namespace AmplifyShaderEditor
 			
 			
 
-			m_outputPorts[ 0 ].SetLocalValue( screenPos );
+			m_outputPorts[ 0 ].SetLocalValue( screenPos, dataCollector.PortCategory );
 			return GetOutputVectorItem( 0, outputId, screenPos );
 
 		}

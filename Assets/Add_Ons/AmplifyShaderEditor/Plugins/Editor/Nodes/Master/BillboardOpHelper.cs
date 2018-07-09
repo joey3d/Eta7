@@ -58,9 +58,9 @@ namespace AmplifyShaderEditor
 		[SerializeField]
 		private bool m_rotationIndependent = false;
 
-		public void Draw( UndoParentNode owner )
+		public void Draw( ParentNode owner )
 		{
-			bool visible = EditorVariablesManager.ExpandedVertexOptions.Value;
+			bool visible = owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedVertexOptions;
 			bool enabled = m_isBillboard;
 			NodeUtils.DrawPropertyGroup( owner, ref visible, ref m_isBillboard, BillboardTitleStr, () =>
 			{
@@ -68,7 +68,7 @@ namespace AmplifyShaderEditor
 				m_rotationIndependent = owner.EditorGUILayoutToggle( BillboardRotIndStr, m_rotationIndependent );
 			} );
 
-			EditorVariablesManager.ExpandedVertexOptions.Value = visible;
+			owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedVertexOptions = visible;
 			if( m_isBillboard != enabled )
 			{
 				UIUtils.RequestSave();

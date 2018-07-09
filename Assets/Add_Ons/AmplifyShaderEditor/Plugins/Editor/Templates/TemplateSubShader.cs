@@ -1,3 +1,6 @@
+// Amplify Shader Editor - Visual Shader Editing Tool
+// Copyright (c) Amplify Creations, Lda <info@amplify.pt>
+
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -9,10 +12,13 @@ namespace AmplifyShaderEditor
 	public class TemplateSubShader
 	{
 		[SerializeField]
+		private int m_idx = -1;
+
+		[SerializeField]
 		private List<TemplatePass> m_passes = new List<TemplatePass>();
 
 		[SerializeField]
-		private TemplateModules m_modules;
+		private TemplateModulesData m_modules;
 
 		[SerializeField]
 		private string m_uniquePrefix;
@@ -32,8 +38,13 @@ namespace AmplifyShaderEditor
 		[SerializeField]
 		private int m_mainPass = -1;
 
+		[SerializeField]
+		private bool m_foundMainPassTag = false;
+
 		public TemplateSubShader( int subShaderIx, TemplateIdManager idManager, string uniquePrefix, TemplateSubShaderInfo subShaderData, ref Dictionary<string, TemplateShaderPropertyData> duplicatesHelper )
 		{
+			m_idx = subShaderIx;
+
 			m_uniquePrefix = uniquePrefix;
 
 			FetchLOD( subShaderData.StartIdx, subShaderData.Modules );
@@ -42,7 +53,7 @@ namespace AmplifyShaderEditor
 				idManager.RegisterId( m_LODContainer.Index, uniquePrefix + "Module" + m_LODContainer.Id, m_LODContainer.Id );
 			}
 
-			m_modules = new TemplateModules( idManager, m_templateProperties, uniquePrefix + "Module", subShaderData.StartIdx, subShaderData.Modules, true );
+			m_modules = new TemplateModulesData( idManager, m_templateProperties, uniquePrefix + "Module", subShaderData.StartIdx, subShaderData.Modules, true );
 
 			Dictionary<string, TemplateShaderPropertyData> ownDuplicatesDict = new Dictionary<string, TemplateShaderPropertyData>( duplicatesHelper );
 
@@ -61,21 +72,24 @@ namespace AmplifyShaderEditor
 			}
 			
 			int firstVisible = -1;
+			int currAddedPassIdx = 0;
 			for( int passIdx = 0; passIdx < m_passAmount; passIdx++ )
 			{
-				TemplatePass newPass = new TemplatePass( subShaderIx, passIdx, idManager, uniquePrefix + "Pass" + passIdx, subShaderData.Passes[ passIdx ].GlobalStartIdx, subShaderData.Passes[ passIdx ], ref ownDuplicatesDict );
+				TemplatePass newPass = new TemplatePass( m_modules,subShaderIx, passIdx, idManager, uniquePrefix + "Pass" + passIdx, subShaderData.Passes[ passIdx ].GlobalStartIdx, subShaderData.Passes[ passIdx ], ref ownDuplicatesDict );
 				if( newPass.AddToList )
 				{
 					if( newPass.IsMainPass && m_mainPass < 0  )
 					{
-						m_mainPass = passIdx;
+						m_mainPass = currAddedPassIdx;
+						m_foundMainPassTag = true;
 					}
 					else if(!newPass.IsInvisible && firstVisible < 0 )
 					{
-						firstVisible = passIdx;
+						firstVisible = currAddedPassIdx;
 					}
 
 					m_passes.Add( newPass );
+					currAddedPassIdx++;
 				}
 				else
 				{
@@ -111,6 +125,7 @@ namespace AmplifyShaderEditor
 
 			m_availableShaderGlobals.Clear();
 			m_availableShaderGlobals = null;
+
 		}
 
 		void FetchLOD( int offsetIdx, string body )
@@ -123,14 +138,16 @@ namespace AmplifyShaderEditor
 				m_LODContainer.Index = offsetIdx + match.Index;
 			}
 		}
-
-
+		
 		public List<TemplatePass> Passes { get { return m_passes; } }
-		public TemplateModules Modules { get { return m_modules; } }
+		public TemplateModulesData Modules { get { return m_modules; } }
 		public string UniquePrefix { get { return m_uniquePrefix; } }
 		public TemplatePropertyContainer TemplateProperties { get { return m_templateProperties; } }
 		public List<TemplateShaderPropertyData> AvailableShaderGlobals { get { return m_availableShaderGlobals; } }
 		public TemplateInfoContainer LODContainer { get { return m_LODContainer; } }
 		public int PassAmount { get { return m_passAmount; } }
+		public bool FoundMainPass { get { return m_foundMainPassTag; } }
+		public int MainPass { get { return m_mainPass; } }
+		public int Idx { get { return m_idx; } }
 	}
 }

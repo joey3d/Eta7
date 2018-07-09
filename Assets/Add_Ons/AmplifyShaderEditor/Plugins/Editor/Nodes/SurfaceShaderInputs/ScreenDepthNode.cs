@@ -84,8 +84,8 @@ namespace AmplifyShaderEditor
 				return "0";
 			}
 
-			if( m_outputPorts[ 0 ].IsLocalValue )
-				return GetOutputColorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+			if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+				return GetOutputColorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 
 			if( !( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight ) )
 				dataCollector.AddToIncludes( UniqueId, Constants.UnityCgLibFuncs );
@@ -93,7 +93,7 @@ namespace AmplifyShaderEditor
 
 			string screenPos = string.Empty;
 			if( m_inputPorts[ 0 ].IsConnected )
-				screenPos = m_inputPorts[ 0 ].GenerateShaderForOutput( ref dataCollector, WirePortDataType.FLOAT4, false );
+				screenPos = m_inputPorts[ 0 ].GeneratePortInstructions( ref dataCollector );
 			else
 				screenPos = GeneratorUtils.GenerateScreenPosition( ref dataCollector, UniqueId, m_currentPrecisionType, !dataCollector.UsingCustomScreenPos );
 
@@ -123,7 +123,7 @@ namespace AmplifyShaderEditor
 
 			dataCollector.AddToLocalVariables( UniqueId, m_currentPrecisionType, WirePortDataType.FLOAT, m_vertexNameStr[ m_viewSpaceInt ] + OutputId, screenDepthInstruction );
 
-			m_outputPorts[ 0 ].SetLocalValue( m_vertexNameStr[ m_viewSpaceInt ] + OutputId );
+			m_outputPorts[ 0 ].SetLocalValue( m_vertexNameStr[ m_viewSpaceInt ] + OutputId, dataCollector.PortCategory );
 			return GetOutputColorItem( 0, outputId, m_vertexNameStr[ m_viewSpaceInt ] + OutputId );
 		}
 

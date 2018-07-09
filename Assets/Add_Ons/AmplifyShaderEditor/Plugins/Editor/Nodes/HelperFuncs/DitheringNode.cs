@@ -109,7 +109,7 @@ namespace AmplifyShaderEditor
 					IOUtils.AddFunctionLine( ref m_functionBody, "	 4, 12,  2, 10," );
 					IOUtils.AddFunctionLine( ref m_functionBody, "	16,  8, 14,  6 };" );
 					IOUtils.AddFunctionLine( ref m_functionBody, "int r = y * 4 + x;" );
-					IOUtils.AddFunctionLine( ref m_functionBody, "return dither[r] / 16;" );
+					IOUtils.AddFunctionLine( ref m_functionBody, "return dither[r] / 16; // same # of instructions as pre-dividing due to compiler magic" );
 					IOUtils.CloseFunctionBody( ref m_functionBody );
 				}
 				break;
@@ -128,7 +128,7 @@ namespace AmplifyShaderEditor
 					IOUtils.AddFunctionLine( ref m_functionBody, "	11, 59,  7, 55, 10, 58,  6, 54," );
 					IOUtils.AddFunctionLine( ref m_functionBody, "	43, 27, 39, 23, 42, 26, 38, 22};" );
 					IOUtils.AddFunctionLine( ref m_functionBody, "int r = y * 8 + x;" );
-					IOUtils.AddFunctionLine( ref m_functionBody, "return dither[r] / 64;" );
+					IOUtils.AddFunctionLine( ref m_functionBody, "return dither[r] / 64; // same # of instructions as pre-dividing due to compiler magic" );
 					IOUtils.CloseFunctionBody( ref m_functionBody );
 				}
 				break;
@@ -155,8 +155,8 @@ namespace AmplifyShaderEditor
 
 		public override string GenerateShaderForOutput( int outputId, ref MasterNodeDataCollector dataCollector, bool ignoreLocalVar )
 		{
-			if ( m_outputPorts[ 0 ].IsLocalValue )
-				return m_outputPorts[ 0 ].LocalValue;
+			if ( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+				return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 
 			GeneratePattern();
 
@@ -221,9 +221,9 @@ namespace AmplifyShaderEditor
 			}
 
 			//RegisterLocalVariable( 0, functionResult, ref dataCollector, "dither" + OutputId );
-			m_outputPorts[ 0 ].SetLocalValue( "dither" + OutputId );
+			m_outputPorts[ 0 ].SetLocalValue( "dither" + OutputId, dataCollector.PortCategory );
 
-			return m_outputPorts[ 0 ].LocalValue;
+			return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 		}
 
 		public override void ReadFromString( ref string[] nodeParams )

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace AmplifyShaderEditor
 {
@@ -197,6 +198,16 @@ namespace AmplifyShaderEditor
 		VertexData
 	}
 
+	public enum TransformSpace
+	{
+		Object = 0,
+		World,
+		View,
+		//Clip,
+		//Tangent,
+		//Screen??
+	}
+
 	public class UIUtils
 	{
 		public static int SerializeHelperCounter = 0;
@@ -230,12 +241,18 @@ namespace AmplifyShaderEditor
 		public static GUIStyle MiniButtonTopMid;
 		public static GUIStyle MiniButtonTopRight;
 
+		public static GUIStyle CommentaryTitle;
+		public static GUIStyle InputPortLabel;
+		public static GUIStyle OutputPortLabel;
+
 		public static GUIStyle MiniObjectFieldThumbOverlay;
 		public static GUIStyle MiniSamplerButton;
 
 		public static GUIStyle NodeWindowOffSquare;
 		public static GUIStyle NodeHeaderSquare;
 		public static GUIStyle NodeWindowOnSquare;
+		public static GUIStyle InternalDataOnPort;
+		public static GUIStyle InternalDataBackground;
 
 		public static GUIStyle GraphButtonIcon;
 		public static GUIStyle GraphButton;
@@ -359,6 +376,7 @@ namespace AmplifyShaderEditor
 		private static FontStyle m_fontStyle;
 
 
+		private static string NumericNamePattern = @"^\d";
 		private static System.Globalization.TextInfo m_textInfo;
 		private static string m_latestOpenedFolder = string.Empty;
 		private static Dictionary<int, UndoParentNode> m_undoHelper = new Dictionary<int, UndoParentNode>();
@@ -395,6 +413,44 @@ namespace AmplifyShaderEditor
 			"UV Coordinates",
 			"Vector Operators",
 			"Vertex Data"
+		};
+
+		private static Dictionary<MasterNodePortCategory, int> m_portCategoryToArrayIdx = new Dictionary<MasterNodePortCategory, int>
+		{
+			{ MasterNodePortCategory.Vertex,0},
+			{ MasterNodePortCategory.Tessellation,0},
+			{ MasterNodePortCategory.Fragment,1},
+			{ MasterNodePortCategory.Debug,1}
+		};
+
+		private static Dictionary<string, string> m_reservedPropertyNames = new Dictionary<string, string>
+		{
+			{ "UNITY_MATRIX_MVP", string.Empty},
+			{ "UNITY_MATRIX_MV", string.Empty},
+			{ "UNITY_MATRIX_V", string.Empty},
+			{ "UNITY_MATRIX_P", string.Empty},
+			{ "UNITY_MATRIX_VP", string.Empty},
+			{ "UNITY_MATRIX_T_MV", string.Empty},
+			{ "UNITY_MATRIX_IT_MV", string.Empty},
+			{ "UNITY_MATRIX_TEXTURE0", string.Empty},
+			{ "UNITY_MATRIX_TEXTURE1", string.Empty},
+			{ "UNITY_MATRIX_TEXTURE2", string.Empty},
+			{ "UNITY_MATRIX_TEXTURE3", string.Empty},
+			{ "_Object2World", string.Empty},
+			{ "_WorldSpaceCameraPos", string.Empty},
+			{ "unity_Scale", string.Empty},
+			{ "_ModelLightColor", string.Empty},
+			{ "_SpecularLightColor", string.Empty},
+			{ "_ObjectSpaceLightPos", string.Empty},
+			{ "_Light2World", string.Empty},
+			{ "_World2Light", string.Empty},
+			{ "_Object2Light", string.Empty},
+			{ "_Time", string.Empty},
+			{ "_SinTime", string.Empty},
+			{ "_CosTime", string.Empty},
+			{ "unity_DeltaTime", string.Empty},
+			{ "_ProjectionParams", string.Empty},
+			{ "_ScreenParams", string.Empty}
 		};
 
 		private static Dictionary<string, string> m_exampleMaterialIDs = new Dictionary<string, string>()
@@ -574,9 +630,9 @@ namespace AmplifyShaderEditor
 
 		private static Dictionary<PrecisionType, string> m_precisionTypeToCg = new Dictionary<PrecisionType, string>()
 		{
-			{ PrecisionType.Float,	"float"},
+			{PrecisionType.Float,	"float"},
 			{PrecisionType.Half,	"half"},
-			{PrecisionType.Fixed,	"fixed"}
+			{PrecisionType.Fixed,	"half"}
 		};
 
 		private static Dictionary<VariableQualifiers, string> m_qualifierToCg = new Dictionary<VariableQualifiers, string>()
@@ -732,6 +788,10 @@ namespace AmplifyShaderEditor
 			Toggle = null;
 			Textfield = null;
 
+			CommentaryTitle = null;
+			InputPortLabel = null;
+			OutputPortLabel = null;
+
 			IntShader = null;
 			FloatShader = null;
 			Vector2Shader = null;
@@ -758,6 +818,8 @@ namespace AmplifyShaderEditor
 			NodeWindowOffSquare = null;
 			NodeHeaderSquare = null;
 			NodeWindowOnSquare = null;
+			InternalDataOnPort = null;
+			InternalDataBackground = null;
 
 			MiniObjectFieldThumbOverlay = null;
 			MiniSamplerButton = null;
@@ -817,11 +879,12 @@ namespace AmplifyShaderEditor
 				CurrentHeaderHeight = HeaderMaxHeight;
 				ScaledPortsDelta = PortsDelta;
 				MainSkin.textField.fontSize = (int)( Constants.TextFieldFontSize );
-				MainSkin.customStyles[ (int)CustomStyle.NodeTitle ].fontSize = (int)( Constants.DefaultTitleFontSize );
 				MainSkin.label.fontSize = (int)( Constants.DefaultFontSize );
-				MainSkin.customStyles[ (int)CustomStyle.InputPortlabel ].fontSize = (int)( Constants.DefaultFontSize );
-				MainSkin.customStyles[ (int)CustomStyle.OutputPortLabel ].fontSize = (int)( Constants.DefaultFontSize );
-				MainSkin.customStyles[ (int)CustomStyle.CommentaryTitle ].fontSize = (int)( Constants.DefaultFontSize );
+				MainSkin.customStyles[ (int)CustomStyle.NodeTitle ].fontSize = (int)( Constants.DefaultTitleFontSize );
+
+				InputPortLabel.fontSize = (int)( Constants.DefaultFontSize );
+				OutputPortLabel.fontSize = (int)( Constants.DefaultFontSize );
+				CommentaryTitle.fontSize = (int)( Constants.DefaultFontSize );
 			}
 		}
 
@@ -859,10 +922,20 @@ namespace AmplifyShaderEditor
 			LockIconClosed = new GUIContent( EditorGUIUtility.IconContent( "LockIcon" ) );
 			LockIconClosed.tooltip = "Click to lock and auto-generate the variable name";
 
-			FloatIntIconON = new GUIContent( EditorGUIUtility.IconContent( "CircularToggle_ON" ) );
-			//FloatIntIconON.tooltip = "Click to unlock and customize the variable name";
-			FloatIntIconOFF = new GUIContent( EditorGUIUtility.IconContent( "CircularToggle_OFF" ) );
-			//FloatIntIconOFF.tooltip = "Click to lock and auto-generate the variable name";
+			if( UsingProSkin )
+			{
+				FloatIntIconON = new GUIContent( EditorGUIUtility.IconContent( "CircularToggle_ON" ) );
+				FloatIntIconOFF = new GUIContent( EditorGUIUtility.IconContent( "CircularToggle_OFF" ) );
+			}
+			else
+			{
+				FloatIntIconON = new GUIContent( ( AssetDatabase.LoadAssetAtPath( AssetDatabase.GUIDToAssetPath( "ac0860a6a77e29d4091ba790a17daa0f" ), typeof( Texture2D ) ) as Texture2D ) );
+				FloatIntIconOFF = new GUIContent( ( AssetDatabase.LoadAssetAtPath( AssetDatabase.GUIDToAssetPath( "1aaca50d084b0bb43854f075ce2f302b" ), typeof( Texture2D ) ) as Texture2D ) );
+			}
+
+			CommentaryTitle = new GUIStyle( MainSkin.customStyles[ (int)CustomStyle.CommentaryTitle ] );
+			InputPortLabel = new GUIStyle( MainSkin.customStyles[ (int)CustomStyle.InputPortlabel ] );
+			OutputPortLabel = new GUIStyle( MainSkin.customStyles[ (int)CustomStyle.OutputPortLabel ] );
 
 			CheckmarkIcon = AssetDatabase.LoadAssetAtPath( AssetDatabase.GUIDToAssetPath( "e9c4642eaa083a54ab91406d8449e6ac" ), typeof( Texture2D ) ) as Texture2D;
 			PopupIcon = AssetDatabase.LoadAssetAtPath( AssetDatabase.GUIDToAssetPath( "d2384a227b4ac4943b73c8151393e502" ), typeof( Texture2D ) ) as Texture2D;
@@ -882,9 +955,16 @@ namespace AmplifyShaderEditor
 			MiniButtonTopMid = new GUIStyle( MainSkin.customStyles[ (int)CustomStyle.MiniButtonTopMid ] );
 			MiniButtonTopRight = new GUIStyle( MainSkin.customStyles[ (int)CustomStyle.MiniButtonTopRight ] );
 
+			InternalDataOnPort = new GUIStyle( MainSkin.customStyles[ (int)CustomStyle.NodeTitle ] );
+			InternalDataOnPort.fontSize = 8;
+			InternalDataOnPort.fontStyle = FontStyle.BoldAndItalic;
+			InternalDataBackground = new GUIStyle( MainSkin.customStyles[ (int)CustomStyle.NodeWindowOffSquare ] );
+			InternalDataBackground.normal.background = AssetDatabase.LoadAssetAtPath( AssetDatabase.GUIDToAssetPath( "330fd0c8f074a3c4f8042114a61a73d9" ), typeof( Texture2D ) ) as Texture2D;
+			InternalDataBackground.overflow = RectOffsetOne;
+
 			MiniObjectFieldThumbOverlay = new GUIStyle( (GUIStyle)"ObjectFieldThumbOverlay" );
 			MiniSamplerButton = new GUIStyle( MainSkin.customStyles[ (int)CustomStyle.SamplerButton ] );
-
+			
 			m_textInfo = new System.Globalization.CultureInfo( "en-US", false ).TextInfo;
 			RangedFloatSliderStyle = new GUIStyle( GUI.skin.horizontalSlider );
 			RangedFloatSliderThumbStyle = new GUIStyle( GUI.skin.horizontalSliderThumb );
@@ -926,10 +1006,10 @@ namespace AmplifyShaderEditor
 			UnZoomedPropertyValuesTitleStyle = new GUIStyle( GetCustomStyle( CustomStyle.PropertyValuesTitle ) );
 			UnZoomedPropertyValuesTitleStyle.fontSize = 11;
 
-			UnZoomedInputPortStyle = new GUIStyle( GetCustomStyle( CustomStyle.InputPortlabel ) );
+			UnZoomedInputPortStyle = new GUIStyle( InputPortLabel );
 			UnZoomedInputPortStyle.fontSize = (int)Constants.DefaultFontSize;
 
-			UnZoomedOutputPortPortStyle = new GUIStyle( GetCustomStyle( CustomStyle.OutputPortLabel ) );
+			UnZoomedOutputPortPortStyle = new GUIStyle( OutputPortLabel );
 			UnZoomedOutputPortPortStyle.fontSize = (int)Constants.DefaultFontSize;
 
 			ObjectFieldThumb = new GUIStyle( (GUIStyle)"ObjectFieldThumb" );
@@ -1019,14 +1099,14 @@ namespace AmplifyShaderEditor
 			CurrentHeaderHeight = HeaderMaxHeight * drawInfo.InvertedZoom;
 			ScaledPortsDelta = drawInfo.InvertedZoom * PortsDelta;
 			MainSkin.textField.fontSize = (int)( Constants.TextFieldFontSize * drawInfo.InvertedZoom );
+			MainSkin.label.fontSize = (int)( Constants.DefaultFontSize * drawInfo.InvertedZoom );
+
 			MainSkin.customStyles[ (int)CustomStyle.NodeTitle ].fontSize = (int)( Constants.DefaultTitleFontSize * drawInfo.InvertedZoom );
 			MainSkin.customStyles[ (int)CustomStyle.PropertyValuesTitle ].fontSize = (int)( Constants.PropertiesTitleFontSize * drawInfo.InvertedZoom );
 
-			MainSkin.label.fontSize = (int)( Constants.DefaultFontSize * drawInfo.InvertedZoom );
-			MainSkin.customStyles[ (int)CustomStyle.InputPortlabel ].fontSize = (int)( Constants.DefaultFontSize * drawInfo.InvertedZoom );
-			MainSkin.customStyles[ (int)CustomStyle.OutputPortLabel ].fontSize = (int)( Constants.DefaultFontSize * drawInfo.InvertedZoom );
-
-			MainSkin.customStyles[ (int)CustomStyle.CommentaryTitle ].fontSize = (int)( Constants.DefaultFontSize * drawInfo.InvertedZoom );
+			InputPortLabel.fontSize = (int)( Constants.DefaultFontSize * drawInfo.InvertedZoom );
+			OutputPortLabel.fontSize = (int)( Constants.DefaultFontSize * drawInfo.InvertedZoom );
+			CommentaryTitle.fontSize = (int)( Constants.DefaultFontSize * drawInfo.InvertedZoom );
 
 			RangedFloatSliderStyle.fixedHeight = 18 * drawInfo.InvertedZoom;
 			RangedFloatSliderThumbStyle.fixedHeight = 12 * drawInfo.InvertedZoom;
@@ -1091,13 +1171,7 @@ namespace AmplifyShaderEditor
 			MiniObjectFieldThumbOverlay.fontSize = (int)( 7 * drawInfo.InvertedZoom );
 			MiniSamplerButton.fontSize = (int)( 8 * drawInfo.InvertedZoom );
 
-			NodeWindowOffSquare = GetCustomStyle( CustomStyle.NodeWindowOffSquare );
-			NodeHeaderSquare = GetCustomStyle( CustomStyle.NodeHeaderSquare );
-			NodeWindowOnSquare = GetCustomStyle( CustomStyle.NodeWindowOnSquare );
-
-			//MainSkin.customStyles[ ( int ) CustomStyle.MiniButtonTopLeft ].fontSize = ( int ) ( 9 * drawInfo.InvertedZoom );
-			//MainSkin.customStyles[ ( int ) CustomStyle.MiniButtonTopMid ].fontSize = ( int ) ( 9 * drawInfo.InvertedZoom );
-			//MainSkin.customStyles[ ( int ) CustomStyle.MiniButtonTopRight ].fontSize = ( int ) ( 9 * drawInfo.InvertedZoom );
+			InternalDataOnPort.fontSize = (int)( 8 * drawInfo.InvertedZoom );
 
 			CheckNullMaterials();
 		}
@@ -1744,6 +1818,16 @@ namespace AmplifyShaderEditor
 			return originalString;
 		}
 
+		public static bool IsUnityNativeShader( Shader shader )
+		{
+			string pathName = AssetDatabase.GetAssetPath( shader );
+
+			if( pathName.Contains( "unity_builtin_extra") || 
+				pathName.Contains( "unity default resources" ))
+			return true;
+
+			return false;
+		}
 		public static bool IsUnityNativeShader( string path ) { return m_unityNativeShaderPaths.ContainsKey( path ); }
 
 		public static string GetComponentForPosition( int pos, WirePortDataType type, bool addDot = false )
@@ -2092,6 +2176,15 @@ namespace AmplifyShaderEditor
 			return null;
 		}
 
+		public static PropertyNode GetInternalTemplateNode( int nodeId )
+		{
+			if( CurrentWindow != null )
+			{
+				return CurrentWindow.CurrentGraph.GetInternalTemplateNode( nodeId );
+			}
+			return null;
+		}
+
 		public static void DeleteConnection( bool isInput, int nodeId, int portId, bool registerOnLog, bool propagateCallback )
 		{
 			if( CurrentWindow != null )
@@ -2161,8 +2254,39 @@ namespace AmplifyShaderEditor
 			}
 		}
 
+		
+		public static bool IsNumericName( string name )
+		{
+			Match match = Regex.Match( name, NumericNamePattern );
+			if( match != null && match.Success )
+				return true;
+			return false;
+		}
+
+		public static bool CheckInvalidUniformName( string name )
+		{
+			if( m_reservedPropertyNames.ContainsKey( name ) )
+			{
+				ShowMessage( string.Format( Constants.ReservedPropertyNameStr, name ) );
+				return true;
+			}
+			
+			if( IsNumericName( name ))
+			{
+				ShowMessage( string.Format( Constants.NumericPropertyNameStr, name ) );
+				return true;
+			}
+
+			return false;
+		}
+
 		public static bool RegisterUniformName( int nodeId, string name )
 		{
+			if( CheckInvalidUniformName( name ) )
+			{
+				return false;
+			}
+			
 			if( CurrentWindow != null )
 			{
 				return CurrentWindow.DuplicatePrevBufferInstance.RegisterUniformName( nodeId, name );
@@ -2181,6 +2305,11 @@ namespace AmplifyShaderEditor
 
 		public static bool IsUniformNameAvailable( string name )
 		{
+			if( CheckInvalidUniformName( name ) )
+			{
+				return false;
+			}
+
 			if( CurrentWindow != null )
 			{
 				return CurrentWindow.DuplicatePrevBufferInstance.IsUniformNameAvailable( name );
@@ -2250,6 +2379,14 @@ namespace AmplifyShaderEditor
 			return -1;
 		}
 
+		public static int PortCategorytoAttayIdx( MasterNodePortCategory category )
+		{
+			if( m_portCategoryToArrayIdx.ContainsKey( category ))
+				return m_portCategoryToArrayIdx[category];
+
+			return m_portCategoryToArrayIdx[ MasterNodePortCategory.Fragment ];
+		} 
+
 		public static bool DisplayDialog( string shaderPath )
 		{
 			string value = System.String.Format( "Save changes to the shader {0} before closing?", shaderPath );
@@ -2275,15 +2412,6 @@ namespace AmplifyShaderEditor
 				floatStr += ".0";
 			}
 			return floatStr;
-		}
-
-		public static int CurrentVersion()
-		{
-			if( CurrentWindow != null )
-			{
-				return CurrentWindow.CurrentVersion;
-			}
-			return -1;
 		}
 
 		public static int CurrentShaderVersion()
@@ -2319,7 +2447,7 @@ namespace AmplifyShaderEditor
 
 		public static void RemoveVirtualTextureCount() { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.RemoveVirtualTextureCount(); } }
 
-		public static void AddInstancePropertyCount() { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.AddInstancePropertyCount(); } }
+		//public static void AddInstancePropertyCount() { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.AddInstancePropertyCount(); } }
 
 		public static bool IsInstancedShader()
 		{
@@ -2330,7 +2458,7 @@ namespace AmplifyShaderEditor
 			return false;
 		}
 
-		public static void RemoveInstancePropertyCount() { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.RemoveInstancePropertyCount(); } }
+		//public static void RemoveInstancePropertyCount() { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.RemoveInstancePropertyCount(); } }
 		//public static void AddNormalDependentCount() { if ( CurrentWindow != null ) { CurrentWindow.CurrentGraph.AddNormalDependentCount(); } }
 		//public static void RemoveNormalDependentCount() { if ( CurrentWindow != null ) { CurrentWindow.CurrentGraph.RemoveNormalDependentCount(); } }
 		//public static bool IsNormalDependent()
@@ -2367,6 +2495,20 @@ namespace AmplifyShaderEditor
 		public static PropertyNode GetFloatIntNode( int idx ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatIntNodes.GetNode( idx ); } return null; }
 		public static void UpdateFloatIntDataNode( int uniqueId, string data ) { if( CurrentWindow != null ) { CurrentWindow.CurrentGraph.FloatIntNodes.UpdateDataOnNode( uniqueId, data ); } }
 		public static int GetFloatIntNodeRegisterId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatIntNodes.GetNodeRegisterIdx( uniqueId ); } return -1; }
+		public static int GetNodeIdByName( string name )
+		{
+			if( CurrentWindow != null )
+			{
+				UsageListFloatIntNodes list = CurrentWindow.CurrentGraph.FloatIntNodes;
+				int count = list.Count;
+				for( int i = 0; i < count; i++ )
+				{
+					if( list.NodesList[ i ].PropertyName.Equals( name ) )
+						return list.NodesList[ i ].UniqueId;
+				}
+			}
+			return -1;
+		}
 		public static PropertyNode GetFloatIntNodeByUniqueId( int uniqueId ) { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatIntNodes.GetNodeByUniqueId( uniqueId ); } return null; }
 		//public static int GetFloatNodeAmount() { if( CurrentWindow != null ) { return CurrentWindow.CurrentGraph.FloatNodes.NodesList.Count; } return -1; }
 

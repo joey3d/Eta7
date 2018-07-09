@@ -23,8 +23,11 @@ namespace AmplifyShaderEditor
 			AddInputPort( WirePortDataType.FLOAT3, false, "Normal" );
 			AddInputPort( WirePortDataType.FLOAT, false, "Smoothness" );
 			AddInputPort( WirePortDataType.FLOAT, false, "Occlusion" );
+			m_inputPorts[ 0 ].Vector3InternalData = Vector3.forward;
 			m_inputPorts[ 1 ].FloatInternalData = 0.5f;
 			m_inputPorts[ 2 ].FloatInternalData = 1;
+			m_inputPorts[ 1 ].AutoDrawInternalData = true;
+			m_inputPorts[ 2 ].AutoDrawInternalData = true;
 			m_autoWrapProperties = true;
 			AddOutputPort( WirePortDataType.FLOAT3, "RGB" );
 			m_errorMessageTypeIsError = NodeMessageType.Warning;
@@ -142,7 +145,7 @@ namespace AmplifyShaderEditor
 				dataCollector.AddToInput( UniqueId, SurfaceInputs.INTERNALDATA, addSemiColon: false );
 				dataCollector.ForceNormal = true;
 
-				normal = m_inputPorts[ 0 ].GenerateShaderForOutput( ref dataCollector, WirePortDataType.FLOAT3, ignoreLocalvar );
+				normal = m_inputPorts[ 0 ].GeneratePortInstructions( ref dataCollector );
 				if( m_normalSpace == ViewSpace.Tangent )
 					normal = "WorldNormalVector( " + Constants.InputVarStr + " , " + normal + " )";
 

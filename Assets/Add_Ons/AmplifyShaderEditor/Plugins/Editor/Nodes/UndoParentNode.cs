@@ -12,6 +12,9 @@ namespace AmplifyShaderEditor
 		[SerializeField]
 		protected NodeAttributes m_nodeAttribs;
 
+		[SerializeField]
+		protected ParentGraph m_containerGraph;
+
 		public void UndoRecordObject( UndoParentNode objectToUndo, string name )
 		{
 			UIUtils.MarkUndoAction();
@@ -382,6 +385,16 @@ namespace AmplifyShaderEditor
 
 		}
 
+		public string EditorGUITextField( Rect position, string label, string text )
+		{
+			string newValue = EditorGUI.TextField( position, label, text );
+			if( !newValue.Equals( text ) )
+			{
+				UndoRecordObject( this, string.Format( MessageFormat, label, ( ( m_nodeAttribs != null ) ? m_nodeAttribs.Name : GetType().ToString() ) ) );
+			}
+			return newValue;
+		}
+
 		public string EditorGUITextField( Rect position, string label, string text, [UnityEngine.Internal.DefaultValue( "EditorStyles.textField" )] GUIStyle style )
 		{
 			string newValue = EditorGUI.TextField( position, label, text, style );
@@ -451,9 +464,19 @@ namespace AmplifyShaderEditor
             }
             return newValue;
         }
+		
+		public Enum EditorGUIEnumPopup( Rect position, Enum selected )
+		{
+			Enum newValue = EditorGUI.EnumPopup( position, selected );
+			if( !newValue.ToString().Equals( selected.ToString() ) )
+			{
+				UndoRecordObject( this, string.Concat( "Changing value EditorGUIEnumPopup on node ", ( ( m_nodeAttribs != null ) ? m_nodeAttribs.Name : GetType().ToString() ) ) );
+				//UndoRecordObject( this, string.Format( MessageFormat, "EditorGUIEnumPopup", ( ( m_nodeAttribs != null ) ? m_nodeAttribs.Name : GetType().ToString() ) ) );
+			}
+			return newValue;
+		}
 
-
-        public Enum EditorGUIEnumPopup( Rect position, Enum selected, [UnityEngine.Internal.DefaultValue( "EditorStyles.popup" )] GUIStyle style )
+		public Enum EditorGUIEnumPopup( Rect position, Enum selected, [UnityEngine.Internal.DefaultValue( "EditorStyles.popup" )] GUIStyle style )
 		{
 			Enum newValue = EditorGUI.EnumPopup( position, selected, style );
 			if ( !newValue.ToString().Equals( selected.ToString() ) )
@@ -554,6 +577,14 @@ namespace AmplifyShaderEditor
 			return value;
 		}
 
+		/// <summary>
+		/// It's the graph the node exists in, this is set after node creation and it's not available on CommonInit
+		/// </summary>
+		public ParentGraph ContainerGraph
+		{
+			get { return m_containerGraph; }
+			set { m_containerGraph = value; }
+		}
 	}
 }
 

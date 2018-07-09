@@ -180,21 +180,18 @@ namespace AmplifyShaderEditor
 	[NodeAttributes( "Standard Surface Output", "Master", "Surface shader generator output", null, KeyCode.None, false )]
 	public sealed class StandardSurfaceOutputNode : MasterNode, ISerializationCallbackReceiver
 	{
-		private readonly static string[] VertexLitFunc = { "\t\tinline fixed4 LightingUnlit( SurfaceOutput s, half3 lightDir, half atten )",
+		private readonly static string[] VertexLitFunc = { "\t\tinline half4 LightingUnlit( SurfaceOutput s, half3 lightDir, half atten )",
 													"\t\t{",
-													"\t\t\treturn fixed4 ( 0, 0, 0, s.Alpha );",
+													"\t\t\treturn half4 ( 0, 0, 0, s.Alpha );",
 													"\t\t}\n"};
 
 		private readonly static string[] FadeModeOptions = { "Opaque", "Masked", "Transparent", "Translucent", "Alpha Premultipled", "Custom" };
 		private const string VertexModeStr = "Vertex Output";
-		private const string CustomInspectorStr = "Custom Editor";
 		private readonly static GUIContent RenderPathContent = new GUIContent( "Render Path", "Selects and generates passes for the supported rendering paths\nDefault: All" );
 		private const string ShaderModelStr = "Shader Model";
 		private readonly static GUIContent LightModelContent = new GUIContent( "Light Model", "Surface shader lighting model defines how the surface reflects light\nDefault: Standard" );
 		private readonly static GUIContent ShaderLODContent = new GUIContent( "Shader LOD", "Shader LOD" );
 		private readonly static GUIContent CullModeContent = new GUIContent( "Cull Mode", "Polygon culling mode prevents rendering of either back-facing or front-facing polygons to save performance, turn it off if you want to render both sides\nDefault: Back" );
-		private const string ZWriteModeStr = "ZWrite Mode";
-		private const string ZTestModeStr = "ZTest Mode";
 
 		private const string DiscardStr = "Opacity Mask";
 		private const string VertexDisplacementStr = "Local Vertex Offset";
@@ -264,16 +261,23 @@ namespace AmplifyShaderEditor
 		[SerializeField]
 		private FallbackPickerHelper m_fallbackHelper = null;
 
+		//legacy
 		[SerializeField]
 		private AdditionalIncludesHelper m_additionalIncludes = new AdditionalIncludesHelper();
-
+		//legacy
 		[SerializeField]
 		private AdditionalPragmasHelper m_additionalPragmas = new AdditionalPragmasHelper();
-
+		//legacy
 		[SerializeField]
 		private AdditionalDefinesHelper m_additionalDefines = new AdditionalDefinesHelper();
+		
+		[SerializeField]
+		private TemplateAdditionalDirectivesHelper m_additionalDirectives = new TemplateAdditionalDirectivesHelper(" Additional Directives");
 
 		[SerializeField]
+		private AdditionalSurfaceOptionsHelper m_additionalSurfaceOptions = new AdditionalSurfaceOptionsHelper();
+
+		[ SerializeField]
 		private CustomTagsHelper m_customTagsHelper = new CustomTagsHelper();
 
 		[SerializeField]
@@ -314,6 +318,9 @@ namespace AmplifyShaderEditor
 
 		[SerializeField]
 		private float m_opacityMaskClipValue = 0.5f;
+
+		[SerializeField]
+		private InlineProperty m_inlineOpacityMaskClipValue = new InlineProperty();
 
 		[SerializeField]
 		private int m_customLightingPortId = -1;
@@ -374,6 +381,8 @@ namespace AmplifyShaderEditor
 		private float m_boxOpacity = 0.5f;
 
 		private InputPort m_refractionPort;
+		private InputPort m_normalPort;
+
 
 		private GUIStyle m_inspectorDefaultStyle;
 
@@ -418,6 +427,7 @@ namespace AmplifyShaderEditor
 		{
 			m_currentLightModel = m_lastLightModel = StandardShaderLightModel.Standard;
 			m_textLabelWidth = 120;
+			m_autoDrawInternalPortData = false;
 			base.CommonInit( uniqueId );
 			m_zBufferHelper.ParentSurface = this;
 			m_tessOpHelper.ParentSurface = this;
@@ -432,14 +442,16 @@ namespace AmplifyShaderEditor
 
 		public override void AddMasterPorts()
 		{
-			int index = 2;
+			int vertexCorrection = 2;
+			int index = vertexCorrection + 2;
 			base.AddMasterPorts();
 			switch( m_currentLightModel )
 			{
 				case StandardShaderLightModel.Standard:
 				{
-					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, 1, MasterNodePortCategory.Fragment, 0 );
-					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, 0, MasterNodePortCategory.Fragment, 1 );
+					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, vertexCorrection + 1, MasterNodePortCategory.Fragment, 0 );
+					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, vertexCorrection + 0, MasterNodePortCategory.Fragment, 1 );
+					m_normalPort = m_inputPorts[ m_inputPorts.Count - 1 ];
 					AddInputPort( WirePortDataType.FLOAT3, false, EmissionStr, index++, MasterNodePortCategory.Fragment, 2 );
 					AddInputPort( WirePortDataType.FLOAT, false, MetallicStr, index++, MasterNodePortCategory.Fragment, 3 );
 					AddInputPort( WirePortDataType.FLOAT, false, SmoothnessStr, index++, MasterNodePortCategory.Fragment, 4 );
@@ -448,8 +460,9 @@ namespace AmplifyShaderEditor
 				break;
 				case StandardShaderLightModel.StandardSpecular:
 				{
-					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, 1, MasterNodePortCategory.Fragment, 0 );
-					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, 0, MasterNodePortCategory.Fragment, 1 );
+					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, vertexCorrection + 1, MasterNodePortCategory.Fragment, 0 );
+					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, vertexCorrection + 0, MasterNodePortCategory.Fragment, 1 );
+					m_normalPort = m_inputPorts[ m_inputPorts.Count - 1 ];
 					AddInputPort( WirePortDataType.FLOAT3, false, EmissionStr, index++, MasterNodePortCategory.Fragment, 2 );
 					AddInputPort( WirePortDataType.FLOAT3, false, SpecularStr, index++, MasterNodePortCategory.Fragment, 3 );
 					AddInputPort( WirePortDataType.FLOAT, false, SmoothnessStr, index++, MasterNodePortCategory.Fragment, 4 );
@@ -458,8 +471,9 @@ namespace AmplifyShaderEditor
 				break;
 				case StandardShaderLightModel.CustomLighting:
 				{
-					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, 1, MasterNodePortCategory.Fragment, 0 );
-					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, 0, MasterNodePortCategory.Fragment, 1 );
+					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, vertexCorrection + 1, MasterNodePortCategory.Fragment, 0 );
+					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, vertexCorrection + 0, MasterNodePortCategory.Fragment, 1 );
+					m_normalPort = m_inputPorts[ m_inputPorts.Count - 1 ];
 					m_inputPorts[ m_inputPorts.Count - 1 ].Locked = true;
 					AddInputPort( WirePortDataType.FLOAT3, false, EmissionStr, index++, MasterNodePortCategory.Fragment, 2 );
 					AddInputPort( WirePortDataType.FLOAT, false, SpecularStr, index++, MasterNodePortCategory.Fragment, 3 );
@@ -470,9 +484,10 @@ namespace AmplifyShaderEditor
 				break;
 				case StandardShaderLightModel.Unlit:
 				{
-					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, 1, MasterNodePortCategory.Fragment, 0 );
+					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, vertexCorrection + 1, MasterNodePortCategory.Fragment, 0 );
 					m_inputPorts[ m_inputPorts.Count - 1 ].Locked = true;
-					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, 0, MasterNodePortCategory.Fragment, 1 );
+					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, vertexCorrection + 0, MasterNodePortCategory.Fragment, 1 );
+					m_normalPort = m_inputPorts[ m_inputPorts.Count - 1 ];
 					m_inputPorts[ m_inputPorts.Count - 1 ].Locked = true;
 					AddInputPort( WirePortDataType.FLOAT3, false, EmissionStr, index++, MasterNodePortCategory.Fragment, 2 );
 					AddInputPort( WirePortDataType.FLOAT, false, SpecularStr, index++, MasterNodePortCategory.Fragment, 3 );
@@ -483,8 +498,9 @@ namespace AmplifyShaderEditor
 				break;
 				case StandardShaderLightModel.Lambert:
 				{
-					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, 1, MasterNodePortCategory.Fragment, 0 );
-					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, 0, MasterNodePortCategory.Fragment, 1 );
+					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, vertexCorrection + 1, MasterNodePortCategory.Fragment, 0 );
+					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, vertexCorrection + 0, MasterNodePortCategory.Fragment, 1 );
+					m_normalPort = m_inputPorts[ m_inputPorts.Count - 1 ];
 					AddInputPort( WirePortDataType.FLOAT3, false, EmissionStr, index++, MasterNodePortCategory.Fragment, 2 );
 					AddInputPort( WirePortDataType.FLOAT, false, SpecularStr, index++, MasterNodePortCategory.Fragment, 3 );
 					AddInputPort( WirePortDataType.FLOAT, false, GlossStr, index++, MasterNodePortCategory.Fragment, 4 );
@@ -492,8 +508,9 @@ namespace AmplifyShaderEditor
 				break;
 				case StandardShaderLightModel.BlinnPhong:
 				{
-					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, 1, MasterNodePortCategory.Fragment, 0 );
-					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, 0, MasterNodePortCategory.Fragment, 1 );
+					AddInputPort( WirePortDataType.FLOAT3, false, AlbedoStr, vertexCorrection + 1, MasterNodePortCategory.Fragment, 0 );
+					AddInputPort( WirePortDataType.FLOAT3, false, NormalStr, vertexCorrection + 0, MasterNodePortCategory.Fragment, 1 );
+					m_normalPort = m_inputPorts[ m_inputPorts.Count - 1 ];
 					AddInputPort( WirePortDataType.FLOAT3, false, EmissionStr, index++, MasterNodePortCategory.Fragment, 2 );
 					AddInputPort( WirePortDataType.FLOAT, false, SpecularStr, index++, MasterNodePortCategory.Fragment, 3 );
 					AddInputPort( WirePortDataType.FLOAT, false, GlossStr, index++, MasterNodePortCategory.Fragment, 4 );
@@ -535,11 +552,13 @@ namespace AmplifyShaderEditor
 
 			////////////////////////////////////////////////////////////////////////////////////////////////
 			// Vertex functions - Adding ordex index in order to force these to be the last ones 
+			// Well now they have been moved to be the first ones so operations on vertex are to be taken into account
+			// by dither, screen position and similar nodes
 			////////////////////////////////////////////////////////////////////////////////////////////////
 			m_vertexPortId = m_inputPorts.Count;
 			m_tessOpHelper.VertexOffsetIndexPort = m_vertexPortId;
-			AddInputPort( WirePortDataType.FLOAT3, false, ( m_vertexMode == VertexMode.Relative ? VertexDisplacementStr : VertexPositionStr ), VertexDataStr, index++, MasterNodePortCategory.Vertex, 11 );
-			AddInputPort( WirePortDataType.FLOAT3, false, VertexNormalStr, index++, MasterNodePortCategory.Vertex, 12 );
+			AddInputPort( WirePortDataType.FLOAT3, false, ( m_vertexMode == VertexMode.Relative ? VertexDisplacementStr : VertexPositionStr ), VertexDataStr, 0/*index++*/, MasterNodePortCategory.Vertex, 11 );
+			AddInputPort( WirePortDataType.FLOAT3, false, VertexNormalStr, 1/*index++*/, MasterNodePortCategory.Vertex, 12 );
 
 			//AddInputPort( WirePortDataType.FLOAT3, false, CustomLightModelStr, index++, MasterNodePortCategory.Fragment, 13 );
 			//m_inputPorts[ m_inputPorts.Count - 1 ].Locked = true;// !(m_currentLightModel == StandardShaderLightModel.CustomLighting);
@@ -647,14 +666,7 @@ namespace AmplifyShaderEditor
 				m_inspectorDefaultStyle = UIUtils.GetCustomStyle( CustomStyle.ResetToDefaultInspectorButton );
 			}
 
-			EditorGUILayout.BeginHorizontal();
-			m_customInspectorName = EditorGUILayoutTextField( CustomInspectorStr, m_customInspectorName );
-			if( GUILayoutButton( string.Empty, UIUtils.GetCustomStyle( CustomStyle.ResetToDefaultInspectorButton ), GUILayout.Width( 15 ), GUILayout.Height( 15 ) ) )
-			{
-				GUIUtility.keyboardControl = 0;
-				m_customInspectorName = Constants.DefaultCustomInspector;
-			}
-			EditorGUILayout.EndHorizontal();
+			DrawCustomInspector();
 		}
 
 		private void RecursiveLog()
@@ -672,23 +684,7 @@ namespace AmplifyShaderEditor
 
 		public void DrawGeneralOptions()
 		{
-			EditorGUI.BeginChangeCheck();
-			string newShaderName = EditorGUILayoutTextField( m_shaderNameContent, m_shaderName );
-			if( EditorGUI.EndChangeCheck() )
-			{
-				if( newShaderName.Length > 0 )
-				{
-					newShaderName = UIUtils.RemoveShaderInvalidCharacters( newShaderName );
-				}
-				else
-				{
-					newShaderName = DefaultShaderName;
-				}
-				ShaderName = newShaderName;
-				ContainerGraph.ParentWindow.UpdateTabTitle( ShaderName, true );
-			}
-			m_shaderNameContent.tooltip = m_shaderName;
-
+			DrawShaderName();
 			DrawCurrentShaderType();
 
 			EditorGUI.BeginChangeCheck();
@@ -746,9 +742,11 @@ namespace AmplifyShaderEditor
 		public void ShowOpacityMaskValueUI()
 		{
 			EditorGUI.BeginChangeCheck();
-			m_opacityMaskClipValue = EditorGUILayoutFloatField( OpacityMaskClipValueContent, m_opacityMaskClipValue );
+			UndoParentNode inst = this;
+			m_inlineOpacityMaskClipValue.CustomDrawer( ref inst, ( x ) => { m_opacityMaskClipValue = EditorGUILayoutFloatField( OpacityMaskClipValueContent, m_opacityMaskClipValue ); }, OpacityMaskClipValueContent.text );
 			if( EditorGUI.EndChangeCheck() )
 			{
+				m_checkChanges = true;
 				if( m_currentMaterial != null && m_currentMaterial.HasProperty( IOUtils.MaskClipValueName ) )
 				{
 					m_currentMaterial.SetFloat( IOUtils.MaskClipValueName, m_opacityMaskClipValue );
@@ -792,19 +790,19 @@ namespace AmplifyShaderEditor
 				m_cachedColor = GUI.color;
 
 				//  General
-				bool generalIsVisible = EditorVariablesManager.ExpandedGeneralShaderOptions.Value;
+				bool generalIsVisible = ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedGeneralShaderOptions;
 				NodeUtils.DrawPropertyGroup( ref generalIsVisible, GeneralFoldoutStr, DrawGeneralOptions );
-				EditorVariablesManager.ExpandedGeneralShaderOptions.Value = generalIsVisible;
+				ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedGeneralShaderOptions = generalIsVisible;
 
 				//Blend Mode
 				GUI.color = new Color( m_cachedColor.r, m_cachedColor.g, m_cachedColor.b, m_titleOpacity );
 				EditorGUILayout.BeginHorizontal( m_inspectorToolbarStyle );
 				GUI.color = m_cachedColor;
 
-				bool blendOptionsVisible = GUILayout.Toggle( EditorVariablesManager.ExpandedBlendOptions.Value, AlphaModeContent, UIUtils.MenuItemToggleStyle, GUILayout.ExpandWidth( true ) );
+				bool blendOptionsVisible = GUILayout.Toggle( ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedBlendOptions, AlphaModeContent, UIUtils.MenuItemToggleStyle, GUILayout.ExpandWidth( true ) );
 				if( Event.current.button == Constants.FoldoutMouseId )
 				{
-					EditorVariablesManager.ExpandedBlendOptions.Value = blendOptionsVisible;
+					ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedBlendOptions = blendOptionsVisible;
 				}
 
 
@@ -836,7 +834,7 @@ namespace AmplifyShaderEditor
 
 				m_customBlendAvailable = ( m_alphaMode == AlphaMode.Custom || m_alphaMode == AlphaMode.Opaque );
 
-				if( EditorVariablesManager.ExpandedBlendOptions.Value )
+				if( ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedBlendOptions )
 				{
 					GUI.color = new Color( m_cachedColor.r, m_cachedColor.g, m_cachedColor.b, m_boxOpacity );
 					EditorGUILayout.BeginVertical( UIUtils.MenuItemBackgroundStyle );
@@ -916,9 +914,11 @@ namespace AmplifyShaderEditor
 				m_zBufferHelper.Draw( this, m_inspectorToolbarStyle, m_customBlendAvailable );
 				m_renderingOptionsOpHelper.Draw( this );
 				m_renderingPlatformOpHelper.Draw( this );
-				m_additionalDefines.Draw( this );
-				m_additionalIncludes.Draw( this );
-				m_additionalPragmas.Draw( this );
+				//m_additionalDefines.Draw( this );
+				//m_additionalIncludes.Draw( this );
+				//m_additionalPragmas.Draw( this );
+				m_additionalSurfaceOptions.Draw( this );
+				m_additionalDirectives.Draw( this );
 				m_customTagsHelper.Draw( this );
 				m_dependenciesHelper.Draw( this );
 				DrawMaterialInputs( m_inspectorToolbarStyle );
@@ -972,7 +972,7 @@ namespace AmplifyShaderEditor
 					ContainerGraph.CurrentCanvasMode = NodeAvailability.SurfaceShader;
 				CacheCurrentSettings();
 				m_lastLightModel = m_currentLightModel;
-				DeleteAllInputConnections( true );
+				DeleteAllInputConnections( true, true );
 				AddMasterPorts();
 				ConnectFromCache();
 			}
@@ -1082,7 +1082,7 @@ namespace AmplifyShaderEditor
 						UIUtils.UnregisterPropertyNode( m_tessellationReorder );
 				}
 
-				if( m_inputPorts[ m_discardPortId ].Available /*( m_alphaMode == AlphaMode.Masked || m_alphaMode == AlphaMode.Custom )*/)
+				if( m_inputPorts[ m_discardPortId ].Available && !m_inlineOpacityMaskClipValue.IsValid )
 				{
 					if( m_maskClipReorder == null )
 					{
@@ -1109,7 +1109,7 @@ namespace AmplifyShaderEditor
 		{
 			base.OnNodeRepaint( drawInfo );
 
-			if( m_containerGraph.IsInstancedShader || m_renderingOptionsOpHelper.EnableInstancing )
+			if( m_containerGraph.IsInstancedShader || m_renderingOptionsOpHelper.ForceEnableInstancing )
 			{
 				DrawInstancedIcon( drawInfo );
 			}
@@ -1188,7 +1188,6 @@ namespace AmplifyShaderEditor
 		public string CreateInstructionsForVertexPort( InputPort port )
 		{
 			//Vertex displacement and per vertex custom data
-			m_currentDataCollector.PortCategory = MasterNodePortCategory.Vertex;
 			WireReference connection = port.GetConnection();
 			ParentNode node = UIUtils.GetNode( connection.NodeId );
 
@@ -1275,15 +1274,17 @@ namespace AmplifyShaderEditor
 			ForceReordering();
 			UpdateFromBlendMode();
 			base.Execute( pathname, isFullPath );
+			RegisterStandaloneFuntions();
 
-			bool isInstancedShader = m_renderingOptionsOpHelper.EnableInstancing || UIUtils.IsInstancedShader();
+			bool isInstancedShader = m_renderingOptionsOpHelper.ForceEnableInstancing || UIUtils.IsInstancedShader();
 			bool hasVirtualTexture = UIUtils.HasVirtualTexture();
 			bool hasTranslucency = false;
 			bool hasTransmission = false;
 			bool hasEmission = false;
 			bool hasOpacity = false;
+			bool hasOpacityMask = false;
 			bool hasRefraction = false;
-			bool hasVertexOffset = false;
+			//bool hasVertexOffset = false;
 			//bool hasCustomLightingAlpha = false;
 			bool hasCustomLightingMask = false;
 
@@ -1388,13 +1389,13 @@ namespace AmplifyShaderEditor
 				m_currentDataCollector.AddToIncludes( UniqueId, Constants.UnityPBSLightingLib );
 
 				m_currentDataCollector.ChangeCustomInputHeader( m_currentLightModel.ToString() + Constants.CustomLightStructStr );
-				m_currentDataCollector.AddToCustomInput( UniqueId, "fixed3 Albedo", true );
-				m_currentDataCollector.AddToCustomInput( UniqueId, "fixed3 Normal", true );
+				m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Albedo", true );
+				m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Normal", true );
 				m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Emission", true );
 				m_currentDataCollector.AddToCustomInput( UniqueId, "half Metallic", true );
 				m_currentDataCollector.AddToCustomInput( UniqueId, "half Smoothness", true );
 				m_currentDataCollector.AddToCustomInput( UniqueId, "half Occlusion", true );
-				m_currentDataCollector.AddToCustomInput( UniqueId, "fixed Alpha", true );
+				m_currentDataCollector.AddToCustomInput( UniqueId, "half Alpha", true );
 				m_currentDataCollector.AddToCustomInput( UniqueId, "Input SurfInput", true );
 				m_currentDataCollector.AddToCustomInput( UniqueId, "UnityGIInput GIData", true );
 			}
@@ -1406,24 +1407,18 @@ namespace AmplifyShaderEditor
 				sortedPorts.Add( m_inputPorts[ i ].OrderId, m_inputPorts[ i ] );
 			}
 
-			bool normalIsConnected = sortedPorts[ 0 ].IsConnected;
-
+			bool normalIsConnected = m_normalPort.IsConnected;
 			m_tessOpHelper.Reset();
 			if( m_inputPorts[ m_inputPorts.Count - 1 ].IsConnected )
 			{
 				//Debug Port active
-
-				m_currentDataCollector.PortCategory = MasterNodePortCategory.Debug;
 				InputPort debugPort = m_inputPorts[ m_inputPorts.Count - 1 ];
-
+				m_currentDataCollector.PortCategory = debugPort.Category;
 				if( debugIsUsingCustomLighting )
 				{
 					m_currentDataCollector.UsingCustomOutput = true;
 					WireReference connection = m_inputPorts[ m_inputPorts.Count - 1 ].GetConnection();
 					ParentNode node = UIUtils.GetNode( connection.NodeId );
-
-					//customLightingInstructions += "#if DIRECTIONAL\n";
-
 					customLightingCode = node.GetValueFromOutputStr( connection.PortId, WirePortDataType.FLOAT3, ref m_currentDataCollector, false );
 					customLightingInstructions = m_currentDataCollector.CustomOutput;
 
@@ -1448,17 +1443,20 @@ namespace AmplifyShaderEditor
 			}
 			else
 			{
+				MasterNodePortCategory currentCategory = sortedPorts[ 0 ].Category;
 				//Collect data from standard nodes
 				for( int i = 0; i < sortedPorts.Count; i++ )
 				{
 					// prepare ports for custom lighting
 					m_currentDataCollector.GenType = sortedPorts[ i ].GenType;
 					if( m_currentLightModel == StandardShaderLightModel.CustomLighting && sortedPorts[ i ].Name.Equals( AlphaStr ) )
-						ContainerGraph.ResetNodesLocalVariables();
+						ContainerGraph.ResetNodesLocalVariablesIfNot( MasterNodePortCategory.Vertex );
 
 					if( sortedPorts[ i ].IsConnected )
 					{
-						if( i == 0 )// Normal Map is Connected
+						m_currentDataCollector.PortCategory = sortedPorts[ i ].Category;
+
+						if( sortedPorts[ i ].Name.Equals( NormalStr ) )// Normal Map is Connected
 						{
 							m_currentDataCollector.DirtyNormal = true;
 						}
@@ -1483,6 +1481,11 @@ namespace AmplifyShaderEditor
 						if( sortedPorts[ i ].Name.Equals( AlphaStr ) )
 						{
 							hasOpacity = true;
+						}
+
+						if( sortedPorts[ i ].Name.Equals( DiscardStr ) )
+						{
+							hasOpacityMask = true;
 						}
 
 						if( hasRefraction )
@@ -1547,8 +1550,8 @@ namespace AmplifyShaderEditor
 							}
 
 							m_currentDataCollector.ChangeCustomInputHeader( m_currentLightModel.ToString() + Constants.CustomLightStructStr );
-							m_currentDataCollector.AddToCustomInput( UniqueId, "fixed3 Albedo", true );
-							m_currentDataCollector.AddToCustomInput( UniqueId, "fixed3 Normal", true );
+							m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Albedo", true );
+							m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Normal", true );
 							m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Emission", true );
 							switch( m_currentLightModel )
 							{
@@ -1556,24 +1559,22 @@ namespace AmplifyShaderEditor
 								m_currentDataCollector.AddToCustomInput( UniqueId, "half Metallic", true );
 								break;
 								case StandardShaderLightModel.StandardSpecular:
-								m_currentDataCollector.AddToCustomInput( UniqueId, "fixed3 Specular", true );
+								m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Specular", true );
 								break;
 							}
 							m_currentDataCollector.AddToCustomInput( UniqueId, "half Smoothness", true );
 							m_currentDataCollector.AddToCustomInput( UniqueId, "half Occlusion", true );
-							m_currentDataCollector.AddToCustomInput( UniqueId, "fixed Alpha", true );
+							m_currentDataCollector.AddToCustomInput( UniqueId, "half Alpha", true );
 							if( hasTranslucency )
-								m_currentDataCollector.AddToCustomInput( UniqueId, "fixed3 Translucency", true );
+								m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Translucency", true );
 
 							if( hasTransmission )
-								m_currentDataCollector.AddToCustomInput( UniqueId, "fixed3 Transmission", true );
+								m_currentDataCollector.AddToCustomInput( UniqueId, "half3 Transmission", true );
 						}
 
 						if( sortedPorts[ i ].Name.Equals( DiscardStr ) )
 						{
 							//Discard Op Node
-							m_currentDataCollector.PortCategory = MasterNodePortCategory.Fragment;
-
 							if( m_currentLightModel == StandardShaderLightModel.CustomLighting )
 							{
 								hasCustomLightingMask = true;
@@ -1583,7 +1584,7 @@ namespace AmplifyShaderEditor
 								ParentNode node = UIUtils.GetNode( connection.NodeId );
 
 								customLightingMaskCode = node.GetValueFromOutputStr( connection.PortId, WirePortDataType.FLOAT, ref m_currentDataCollector, false );
-								customLightingMaskCode = "clip( " + customLightingMaskCode + " - " + IOUtils.MaskClipValueName + " )";
+								customLightingMaskCode = "clip( " + customLightingMaskCode + " - " + m_inlineOpacityMaskClipValue.GetValueOrProperty( IOUtils.MaskClipValueName, false ) + " )";
 								customLightingInstructions = m_currentDataCollector.CustomOutput;
 
 								m_currentDataCollector.GenType = PortGenType.NonCustomLighting;
@@ -1593,7 +1594,7 @@ namespace AmplifyShaderEditor
 							else
 							{
 								string clipIn = "\t\t\tclip( ";
-								string clipOut = " - " + IOUtils.MaskClipValueName + " );\n";
+								string clipOut = " - " + m_inlineOpacityMaskClipValue.GetValueOrProperty( IOUtils.MaskClipValueName, false ) + " );\n";
 								if( m_alphaToCoverage && m_castShadows )
 								{
 									clipIn = "\t\t\t#if UNITY_PASS_SHADOWCASTER\n" + clipIn;
@@ -1604,24 +1605,17 @@ namespace AmplifyShaderEditor
 						}
 						else if( sortedPorts[ i ].DataName.Equals( VertexDataStr ) )
 						{
-							hasVertexOffset = true;
-							ContainerGraph.ResetNodesLocalVariablesIfNot( MasterNodePortCategory.Vertex );
 							string vertexInstructions = CreateInstructionsForVertexPort( sortedPorts[ i ] );
 							m_currentDataCollector.AddToVertexDisplacement( vertexInstructions, m_vertexMode );
 						}
 						else if( sortedPorts[ i ].DataName.Equals( VertexNormalStr ) )
 						{
-							if( !hasVertexOffset )
-								ContainerGraph.ResetNodesLocalVariablesIfNot( MasterNodePortCategory.Vertex );
-
 							string vertexInstructions = CreateInstructionsForVertexPort( sortedPorts[ i ] );
 							m_currentDataCollector.AddToVertexNormal( vertexInstructions );
 						}
 						else if( m_tessOpHelper.IsTessellationPort( sortedPorts[ i ].PortId ) && sortedPorts[ i ].IsConnected  /* && m_tessOpHelper.EnableTesselation*/)
 						{
-							ContainerGraph.ResetNodesLocalVariablesIfNot( MasterNodePortCategory.Vertex );
 							//Vertex displacement and per vertex custom data
-							m_currentDataCollector.PortCategory = MasterNodePortCategory.Tessellation;
 							WireReference connection = sortedPorts[ i ].GetConnection();
 							ParentNode node = UIUtils.GetNode( connection.NodeId );
 
@@ -1655,9 +1649,6 @@ namespace AmplifyShaderEditor
 						}
 						else if( sortedPorts[ i ].Name.Equals( CustomLightingStr ) )
 						{
-							//if ( !hasCustomLightingAlpha )
-							//	ContainerGraph.ResetNodesLocalVariables();
-
 							m_currentDataCollector.UsingCustomOutput = true;
 							WireReference connection = sortedPorts[ i ].GetConnection();
 							ParentNode node = UIUtils.GetNode( connection.NodeId );
@@ -1680,12 +1671,9 @@ namespace AmplifyShaderEditor
 
 							m_currentDataCollector.UsingCustomOutput = false;
 
-							//ContainerGraph.ResetNodesLocalVariables();
 						}
 						else if( sortedPorts[ i ].Name.Equals( AlphaStr ) && m_currentLightModel == StandardShaderLightModel.CustomLighting )
 						{
-							//hasCustomLightingAlpha = true;
-							//ContainerGraph.ResetNodesLocalVariables();
 							m_currentDataCollector.UsingCustomOutput = true;
 							m_currentDataCollector.GenType = PortGenType.CustomLighting;
 
@@ -1714,10 +1702,7 @@ namespace AmplifyShaderEditor
 						else
 						{
 							// Surface shader instruccions
-							m_currentDataCollector.PortCategory = MasterNodePortCategory.Fragment;
 							// if working on normals and have normal dependent node then ignore local var generation
-							//bool ignoreLocalVar = ( i == 0 && UIUtils.IsNormalDependent() );
-
 							CreateInstructionsForPort( sortedPorts[ i ], Constants.OutputVarStr + "." + sortedPorts[ i ].DataName, false, null, null, false, normalIsConnected );
 						}
 					}
@@ -1756,12 +1741,29 @@ namespace AmplifyShaderEditor
 			m_currentDataCollector.AddToProperties( -1, IOUtils.DefaultASEDirtyCheckProperty, 10000 );
 			if( m_inputPorts[ m_discardPortId ].Available && m_inputPorts[ m_discardPortId ].IsConnected )
 			{
-				m_currentDataCollector.AddToProperties( -1, string.Format( IOUtils.MaskClipValueProperty, OpacityMaskClipValueStr, m_opacityMaskClipValue ), ( m_maskClipReorder != null ) ? m_maskClipReorder.OrderIndex : -1 );
-				m_currentDataCollector.AddToUniforms( -1, string.Format( IOUtils.MaskClipValueUniform, m_opacityMaskClipValue ) );
+				if( m_inlineOpacityMaskClipValue.IsValid )
+				{
+					RangedFloatNode fnode = UIUtils.GetNode( m_inlineOpacityMaskClipValue.NodeId ) as RangedFloatNode;
+					if( fnode != null )
+					{
+						m_currentDataCollector.AddToProperties( fnode.UniqueId, fnode.GetPropertyValue(), fnode.OrderIndex );
+						m_currentDataCollector.AddToUniforms( fnode.UniqueId, fnode.GetUniformValue() );
+					}
+					else
+					{
+						IntNode inode = UIUtils.GetNode( m_inlineOpacityMaskClipValue.NodeId ) as IntNode;
+						m_currentDataCollector.AddToProperties( inode.UniqueId, inode.GetPropertyValue(), inode.OrderIndex );
+						m_currentDataCollector.AddToUniforms( inode.UniqueId, inode.GetUniformValue() );
+					}
+				} else
+				{
+					m_currentDataCollector.AddToProperties( -1, string.Format( IOUtils.MaskClipValueProperty, OpacityMaskClipValueStr, m_opacityMaskClipValue ), ( m_maskClipReorder != null ) ? m_maskClipReorder.OrderIndex : -1 );
+					m_currentDataCollector.AddToUniforms( -1, string.Format( IOUtils.MaskClipValueUniform, m_opacityMaskClipValue ) );
+				}
 			}
 
 			if( !m_currentDataCollector.DirtyInputs )
-				m_currentDataCollector.AddToInput( UniqueId, "fixed filler", true );
+				m_currentDataCollector.AddToInput( UniqueId, "half filler", true );
 
 			if( m_currentLightModel == StandardShaderLightModel.BlinnPhong )
 				m_currentDataCollector.AddToProperties( -1, "_SpecColor(\"Specular Color\",Color)=(1,1,1,1)", m_specColorReorder.OrderIndex );
@@ -1790,9 +1792,10 @@ namespace AmplifyShaderEditor
 				m_currentDataCollector.AddVertexInstruction( "UNITY_TRANSFER_DITHER_CROSSFADE( " + Constants.VertexShaderOutputStr + ", " + Constants.VertexShaderInputStr + ".vertex )", UniqueId, true );
 			}
 #endif
-			m_additionalIncludes.AddToDataCollector( ref m_currentDataCollector );
-			m_additionalPragmas.AddToDataCollector( ref m_currentDataCollector );
-			m_additionalDefines.AddToDataCollector( ref m_currentDataCollector );
+			//m_additionalIncludes.AddToDataCollector( ref m_currentDataCollector );
+			//m_additionalPragmas.AddToDataCollector( ref m_currentDataCollector );
+			//m_additionalDefines.AddToDataCollector( ref m_currentDataCollector );
+			m_additionalDirectives.AddAllToDataCollector( ref m_currentDataCollector );
 
 			//m_currentDataCollector.CloseInputs();
 			m_currentDataCollector.CloseCustomInputs();
@@ -1942,6 +1945,9 @@ namespace AmplifyShaderEditor
 						if( m_currentDataCollector.DirtyPragmas/* && !m_customShadowCaster */)
 							ShaderBody += m_currentDataCollector.Pragmas;
 
+						if(m_currentDataCollector.DirtyAdditionalDirectives)
+							ShaderBody += m_currentDataCollector.StandardAdditionalDirectives;
+
 						//if ( !m_customBlendMode )
 						{
 							switch( m_alphaMode )
@@ -1991,6 +1997,11 @@ namespace AmplifyShaderEditor
 							OptionalParameters += "noforwardadd" + Constants.OptionalParametersSep;
 						}
 
+						if( m_renderingOptionsOpHelper.ForceDisableInstancing )
+						{
+							OptionalParameters += "noinstancing" + Constants.OptionalParametersSep;
+						}
+
 						switch( m_renderPath )
 						{
 							case RenderPath.All: break;
@@ -2017,6 +2028,7 @@ namespace AmplifyShaderEditor
 								m_tessOpHelper.WriteToOptionalParams( ref OptionalParameters );
 							}
 
+							m_additionalSurfaceOptions.WriteToOptionalSurfaceOptions( ref OptionalParameters );
 							AddShaderPragma( ref ShaderBody, "surface surf " + standardCustomLighting + m_currentLightModel.ToString() + customLightSurface + Constants.OptionalParametersSep + OptionalParameters );
 						}
 						else
@@ -2029,7 +2041,7 @@ namespace AmplifyShaderEditor
 								ShaderBody += "\t\t\t#undef WorldNormalVector\n";
 								ShaderBody += "\t\t\t#define INTERNAL_DATA half3 internalSurfaceTtoW0; half3 internalSurfaceTtoW1; half3 internalSurfaceTtoW2;\n";
 								ShaderBody += "\t\t\t#define WorldReflectionVector(data,normal) reflect (data.worldRefl, half3(dot(data.internalSurfaceTtoW0,normal), dot(data.internalSurfaceTtoW1,normal), dot(data.internalSurfaceTtoW2,normal)))\n";
-								ShaderBody += "\t\t\t#define WorldNormalVector(data,normal) fixed3(dot(data.internalSurfaceTtoW0,normal), dot(data.internalSurfaceTtoW1,normal), dot(data.internalSurfaceTtoW2,normal))\n";
+								ShaderBody += "\t\t\t#define WorldNormalVector(data,normal) half3(dot(data.internalSurfaceTtoW0,normal), dot(data.internalSurfaceTtoW1,normal), dot(data.internalSurfaceTtoW2,normal))\n";
 								ShaderBody += "\t\t#endif\n";
 							}
 						}
@@ -2057,7 +2069,7 @@ namespace AmplifyShaderEditor
 						if( m_currentDataCollector.UsingArrayDerivatives )
 						{
 							ShaderBody += "\t\t#if defined(UNITY_COMPILER_HLSL2GLSL) || defined(SHADER_TARGET_SURFACE_ANALYSIS)\n";
-							ShaderBody += "\t\t\t#define ASE_SAMPLE_TEX2DARRAY_GRAD(tex,coord,dx,dy) tex2DArray (tex,coord)\n";
+							ShaderBody += "\t\t\t#define ASE_SAMPLE_TEX2DARRAY_GRAD(tex,coord,dx,dy) UNITY_SAMPLE_TEX2DARRAY (tex,coord)\n";
 							ShaderBody += "\t\t#else\n";
 							ShaderBody += "\t\t\t#define ASE_SAMPLE_TEX2DARRAY_GRAD(tex,coord,dx,dy) tex.SampleGrad (sampler##tex,coord,dx,dy)\n";
 							ShaderBody += "\t\t#endif\n\n";
@@ -2103,13 +2115,20 @@ namespace AmplifyShaderEditor
 							ShaderBody += "\t\t\thalf4 c = 0;\n";
 							if( m_currentDataCollector.UsingLightAttenuation )
 							{
-								ShaderBody += "\t\t\t#if DIRECTIONAL\n";
+								ShaderBody += "\t\t\t#ifdef UNITY_PASS_FORWARDBASE\n";
 								ShaderBody += "\t\t\tfloat ase_lightAtten = data.atten;\n";
 								ShaderBody += "\t\t\tif( _LightColor0.a == 0)\n";
 								ShaderBody += "\t\t\tase_lightAtten = 0;\n";
 								ShaderBody += "\t\t\t#else\n";
 								ShaderBody += "\t\t\tfloat3 ase_lightAttenRGB = gi.light.color / ( ( _LightColor0.rgb ) + 0.000001 );\n";
 								ShaderBody += "\t\t\tfloat ase_lightAtten = max( max( ase_lightAttenRGB.r, ase_lightAttenRGB.g ), ase_lightAttenRGB.b );\n";
+								ShaderBody += "\t\t\t#endif\n";
+
+								ShaderBody += "\t\t\t#if defined(HANDLE_SHADOWS_BLENDING_IN_GI)\n";
+								ShaderBody += "\t\t\thalf bakedAtten = UnitySampleBakedOcclusion(data.lightmapUV.xy, data.worldPos);\n";
+								ShaderBody += "\t\t\tfloat zDist = dot(_WorldSpaceCameraPos - data.worldPos, UNITY_MATRIX_V[2].xyz);\n";
+								ShaderBody += "\t\t\tfloat fadeDist = UnityComputeShadowFadeDistance(data.worldPos, zDist);\n";
+								ShaderBody += "\t\t\tase_lightAtten = UnityMixRealtimeAndBakedShadows(data.atten, bakedAtten, UnityComputeShadowFade(fadeDist));\n";
 								ShaderBody += "\t\t\t#endif\n";
 							}
 
@@ -2216,7 +2235,7 @@ namespace AmplifyShaderEditor
 							ShaderBody += "\t\t\treturn float4( redAlpha.r, green, blue, redAlpha.a );\n";
 							ShaderBody += "\t\t}\n\n";
 
-							ShaderBody += "\t\tvoid RefractionF( Input " + Constants.InputVarStr + ", " + outputStruct + " " + Constants.OutputVarStr + ", inout fixed4 color )\n";
+							ShaderBody += "\t\tvoid RefractionF( Input " + Constants.InputVarStr + ", " + outputStruct + " " + Constants.OutputVarStr + ", inout half4 color )\n";
 							ShaderBody += "\t\t{\n";
 							ShaderBody += "\t\t\t#ifdef UNITY_PASS_FORWARDBASE\n";
 							ShaderBody += refractionInstructions;
@@ -2264,6 +2283,8 @@ namespace AmplifyShaderEditor
 						//if ( hasRefraction )
 						//	ShaderBody += "\t\t#pragma multi_compile _ALPHAPREMULTIPLY_ON\n";
 
+						m_additionalSurfaceOptions.WriteToOptionalSurfaceOptions( ref OptionalParameters );
+
 						AddShaderPragma( ref ShaderBody, "surface surf " + standardCustomLighting + m_currentLightModel.ToString() + customLightSurface + Constants.OptionalParametersSep + OptionalParameters );
 						CloseCGProgram( ref ShaderBody );
 
@@ -2290,7 +2311,7 @@ namespace AmplifyShaderEditor
 						ShaderBody += "\t\t\t#include \"Lighting.cginc\"\n";
 						ShaderBody += "\t\t\t#include \"UnityPBSLighting.cginc\"\n";
 
-						if( !( m_alphaToCoverage && hasOpacity && m_inputPorts[ m_discardPortId ].IsConnected ) )
+						if( !( m_alphaToCoverage && hasOpacity && hasOpacityMask ) )
 							if( hasOpacity )
 								ShaderBody += "\t\t\tsampler3D _DitherMaskLOD;\n";
 
@@ -2326,7 +2347,7 @@ namespace AmplifyShaderEditor
 						}
 
 						if( m_currentDataCollector.UsingVertexColor )
-							ShaderBody += "\t\t\t\tfixed4 color : COLOR0;\n";
+							ShaderBody += "\t\t\t\thalf4 color : COLOR0;\n";
 						ShaderBody += "\t\t\t\tUNITY_VERTEX_INPUT_INSTANCE_ID\n";
 						ShaderBody += "\t\t\t};\n";
 
@@ -2346,12 +2367,12 @@ namespace AmplifyShaderEditor
 						}
 
 						ShaderBody += "\t\t\t\tfloat3 worldPos = mul( unity_ObjectToWorld, v.vertex ).xyz;\n";
-						ShaderBody += "\t\t\t\tfixed3 worldNormal = UnityObjectToWorldNormal( v.normal );\n";
+						ShaderBody += "\t\t\t\thalf3 worldNormal = UnityObjectToWorldNormal( v.normal );\n";
 						if( m_currentDataCollector.UsingInternalData || m_currentDataCollector.DirtyNormal )
 						{
-							ShaderBody += "\t\t\t\tfixed3 worldTangent = UnityObjectToWorldDir( v.tangent.xyz );\n";
-							ShaderBody += "\t\t\t\tfixed tangentSign = v.tangent.w * unity_WorldTransformParams.w;\n";
-							ShaderBody += "\t\t\t\tfixed3 worldBinormal = cross( worldNormal, worldTangent ) * tangentSign;\n";
+							ShaderBody += "\t\t\t\thalf3 worldTangent = UnityObjectToWorldDir( v.tangent.xyz );\n";
+							ShaderBody += "\t\t\t\thalf tangentSign = v.tangent.w * unity_WorldTransformParams.w;\n";
+							ShaderBody += "\t\t\t\thalf3 worldBinormal = cross( worldNormal, worldTangent ) * tangentSign;\n";
 							ShaderBody += "\t\t\t\to.tSpace0 = float4( worldTangent.x, worldBinormal.x, worldNormal.x, worldPos.x );\n";
 							ShaderBody += "\t\t\t\to.tSpace1 = float4( worldTangent.y, worldBinormal.y, worldNormal.y, worldPos.y );\n";
 							ShaderBody += "\t\t\t\to.tSpace2 = float4( worldTangent.z, worldBinormal.z, worldNormal.z, worldPos.z );\n";
@@ -2401,7 +2422,7 @@ namespace AmplifyShaderEditor
 						ShaderBody += "\t\t\t\treturn o;\n";
 						ShaderBody += "\t\t\t}\n";
 
-						ShaderBody += "\t\t\tfixed4 frag( v2f IN\n";
+						ShaderBody += "\t\t\thalf4 frag( v2f IN\n";
 						ShaderBody += "\t\t\t#if !defined( CAN_SKIP_VPOS )\n";
 						ShaderBody += "\t\t\t, UNITY_VPOS_TYPE vpos : VPOS\n";
 						ShaderBody += "\t\t\t#endif\n";
@@ -2427,7 +2448,7 @@ namespace AmplifyShaderEditor
 							ShaderBody += "\t\t\t\tfloat3 worldPos = float3( IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w );\n";
 						else
 							ShaderBody += "\t\t\t\tfloat3 worldPos = IN.worldPos;\n";
-						ShaderBody += "\t\t\t\tfixed3 worldViewDir = normalize( UnityWorldSpaceViewDir( worldPos ) );\n";
+						ShaderBody += "\t\t\t\thalf3 worldViewDir = normalize( UnityWorldSpaceViewDir( worldPos ) );\n";
 
 						if( m_currentDataCollector.UsingViewDirection && !m_currentDataCollector.DirtyNormal )
 							ShaderBody += "\t\t\t\tsurfIN.viewDir = worldViewDir;\n";
@@ -2461,11 +2482,11 @@ namespace AmplifyShaderEditor
 						ShaderBody += "\t\t\t\t" + outputStruct + " o;\n";
 						ShaderBody += "\t\t\t\tUNITY_INITIALIZE_OUTPUT( " + outputStruct + ", o )\n";
 						ShaderBody += "\t\t\t\tsurf( surfIN, o );\n";
-						if( m_inputPorts[ m_discardPortId ].IsConnected && m_inputPorts[ m_discardPortId ].Visible && m_currentLightModel == StandardShaderLightModel.CustomLighting )
+						if( ( hasOpacity || hasOpacityMask ) && m_currentLightModel == StandardShaderLightModel.CustomLighting )
 						{
 							ShaderBody += "\t\t\t\tUnityGI gi;\n";
 							ShaderBody += "\t\t\t\tUNITY_INITIALIZE_OUTPUT( UnityGI, gi );\n";
-							ShaderBody += "\t\t\t\tLightingStandardCustomLighting( o, worldViewDir, gi );\n";
+							ShaderBody += "\t\t\t\to.Alpha = LightingStandardCustomLighting( o, worldViewDir, gi ).a;\n";
 						}
 						ShaderBody += "\t\t\t\t#if defined( CAN_SKIP_VPOS )\n";
 						ShaderBody += "\t\t\t\tfloat2 vpos = IN.pos;\n";
@@ -2499,7 +2520,7 @@ namespace AmplifyShaderEditor
 
 				if( m_fallbackHelper.Active )
 				{
-					ShaderBody += m_fallbackHelper.CreateFallbackShader();
+					ShaderBody += m_fallbackHelper.TabbedFallbackShader;
 				}
 				else if( m_castShadows || m_receiveShadows )
 				{
@@ -2596,6 +2617,7 @@ namespace AmplifyShaderEditor
 			m_translucencyPort = null;
 			m_transmissionPort = null;
 			m_refractionPort = null;
+			m_normalPort = null;
 
 			m_renderingOptionsOpHelper.Destroy();
 			m_renderingOptionsOpHelper = null;
@@ -2608,6 +2630,12 @@ namespace AmplifyShaderEditor
 
 			m_additionalDefines.Destroy();
 			m_additionalDefines = null;
+
+			m_additionalSurfaceOptions.Destroy();
+			m_additionalSurfaceOptions = null;
+
+			m_additionalDirectives.Destroy();
+			m_additionalDirectives = null;
 
 			m_customTagsHelper.Destroy();
 			m_customTagsHelper = null;
@@ -2897,7 +2925,7 @@ namespace AmplifyShaderEditor
 					m_tessellationOrderIndex = Convert.ToInt32( GetCurrentParam( ref nodeParams ) );
 				}
 
-				if( UIUtils.CurrentShaderVersion() > 10010 )
+				if( UIUtils.CurrentShaderVersion() > 10010 && UIUtils.CurrentShaderVersion() < 15312 )
 				{
 					m_additionalIncludes.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
 				}
@@ -2907,7 +2935,7 @@ namespace AmplifyShaderEditor
 					m_customTagsHelper.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
 				}
 
-				if( UIUtils.CurrentShaderVersion() > 13102 )
+				if( UIUtils.CurrentShaderVersion() > 13102 && UIUtils.CurrentShaderVersion() < 15312 )
 				{
 					m_additionalPragmas.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
 				}
@@ -2922,7 +2950,7 @@ namespace AmplifyShaderEditor
 					m_dependenciesHelper.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
 				}
 
-				if( UIUtils.CurrentShaderVersion() > 14005 )
+				if( UIUtils.CurrentShaderVersion() > 14005 && UIUtils.CurrentShaderVersion() < 15312 )
 				{
 					m_additionalDefines.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
 				}
@@ -2935,6 +2963,23 @@ namespace AmplifyShaderEditor
 				if( UIUtils.CurrentShaderVersion() > 14502 )
 				{
 					m_specColorOrderIndex = Convert.ToInt32( GetCurrentParam( ref nodeParams ) );
+				}
+
+				if( UIUtils.CurrentShaderVersion() > 15204 )
+				{
+					m_inlineOpacityMaskClipValue.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
+				}
+
+				if( UIUtils.CurrentShaderVersion() > 15311 )
+				{
+					m_additionalDirectives.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
+					m_additionalSurfaceOptions.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
+				}
+				else
+				{
+					m_additionalDirectives.AddItems( AdditionalLineType.Define, m_additionalDefines.DefineList );
+					m_additionalDirectives.AddItems( AdditionalLineType.Include, m_additionalIncludes.IncludeList );
+					m_additionalDirectives.AddItems( AdditionalLineType.Pragma, m_additionalPragmas.PragmaList );
 				}
 
 				m_lightModelChanged = true;
@@ -3001,14 +3046,17 @@ namespace AmplifyShaderEditor
 			IOUtils.AddFieldValueToString( ref nodeInfo, ( m_translucencyReorder != null ) ? m_translucencyReorder.OrderIndex : -1 );
 			IOUtils.AddFieldValueToString( ref nodeInfo, ( m_refractionReorder != null ) ? m_refractionReorder.OrderIndex : -1 );
 			IOUtils.AddFieldValueToString( ref nodeInfo, ( m_tessellationReorder != null ) ? m_tessellationReorder.OrderIndex : -1 );
-			m_additionalIncludes.WriteToString( ref nodeInfo );
+			//m_additionalIncludes.WriteToString( ref nodeInfo );
 			m_customTagsHelper.WriteToString( ref nodeInfo );
-			m_additionalPragmas.WriteToString( ref nodeInfo );
+			//m_additionalPragmas.WriteToString( ref nodeInfo );
 			IOUtils.AddFieldValueToString( ref nodeInfo, m_alphaToCoverage );
 			m_dependenciesHelper.WriteToString( ref nodeInfo );
-			m_additionalDefines.WriteToString( ref nodeInfo );
+			//m_additionalDefines.WriteToString( ref nodeInfo );
 			m_inlineCullMode.WriteToString( ref nodeInfo );
 			IOUtils.AddFieldValueToString( ref nodeInfo, ( m_specColorReorder != null ) ? m_specColorReorder.OrderIndex : -1 );
+			m_inlineOpacityMaskClipValue.WriteToString( ref nodeInfo );
+			m_additionalDirectives.WriteToString( ref nodeInfo );
+			m_additionalSurfaceOptions.WriteToString( ref nodeInfo );
 		}
 
 		private bool TestCustomBlendMode()
@@ -3108,10 +3156,12 @@ namespace AmplifyShaderEditor
 
 		public StandardShaderLightModel CurrentLightingModel { get { return m_currentLightModel; } }
 		public CullMode CurrentCullMode { get { return m_cullMode; } }
-		public AdditionalIncludesHelper AdditionalIncludes { get { return m_additionalIncludes; } set { m_additionalIncludes = value; } }
-		public AdditionalPragmasHelper AdditionalPragmas { get { return m_additionalPragmas; } set { m_additionalPragmas = value; } }
-		public AdditionalDefinesHelper AdditionalDefines { get { return m_additionalDefines; } set { m_additionalDefines = value; } }
+		//public AdditionalIncludesHelper AdditionalIncludes { get { return m_additionalIncludes; } set { m_additionalIncludes = value; } }
+		//public AdditionalPragmasHelper AdditionalPragmas { get { return m_additionalPragmas; } set { m_additionalPragmas = value; } }
+		//public AdditionalDefinesHelper AdditionalDefines { get { return m_additionalDefines; } set { m_additionalDefines = value; } }
+		public TemplateAdditionalDirectivesHelper AdditionalDirectives { get { return m_additionalDirectives; } }
 		public OutlineOpHelper OutlineHelper { get { return m_outlineHelper; } }
 		public float OpacityMaskClipValue { get { return m_opacityMaskClipValue; } }
+		public InlineProperty InlineOpacityMaskClipValue { get { return m_inlineOpacityMaskClipValue; } set { m_inlineOpacityMaskClipValue = value; } }
 	}
 }

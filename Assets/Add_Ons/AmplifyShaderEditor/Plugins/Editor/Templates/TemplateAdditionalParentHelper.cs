@@ -11,9 +11,17 @@ namespace AmplifyShaderEditor
 	[Serializable]
 	public class TemplateAdditionalParentHelper : TemplateModuleParent
 	{
+		private string NativeFoldoutStr = "Native";
+
 		protected string m_helpBoxMessage = string.Empty;
 		private const float ShaderKeywordButtonLayoutWidth = 15;
 		private ParentNode m_currentOwner;
+
+		[SerializeField]
+		protected List<string> m_nativeItems = new List<string>();
+
+		[SerializeField]
+		protected bool m_nativeItemsFoldout = false;
 
 		[SerializeField]
 		protected List<string> m_additionalItems = new List<string>();
@@ -22,12 +30,20 @@ namespace AmplifyShaderEditor
 		protected List<string> m_outsideItems = new List<string>();
 
 		public TemplateAdditionalParentHelper( string moduleName ) : base( moduleName ) { }
-		public void MarkAsValid() { m_validData = true; }
+		public bool IsValid { set{ m_validData = value; } get{ return m_validData; } }
+		
+		public void FillNativeItems( List<string> nativeItems )
+		{
+			m_nativeItems.Clear();
+			m_nativeItems.AddRange( nativeItems );
+		}
 
 		public void Draw( ParentNode owner )
 		{
 			m_currentOwner = owner;
-			NodeUtils.DrawNestedPropertyGroup( ref m_foldoutValue, m_moduleName, DrawMainBody, DrawButtons );
+			bool foldout = owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedAdditionalDefines;
+			NodeUtils.DrawNestedPropertyGroup( ref foldout, m_moduleName, DrawMainBody, DrawButtons );
+			owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedAdditionalDefines = foldout;
 		}
 
 		public void CopyFrom( TemplateAdditionalParentHelper other )
@@ -70,10 +86,27 @@ namespace AmplifyShaderEditor
 				m_isDirty = true;
 			}
 		}
-
+		void DrawNativeItems()
+		{
+			EditorGUILayout.Separator();
+			EditorGUI.indentLevel++;
+			int count = m_nativeItems.Count;
+			for ( int i = 0; i < count; i++ )
+			{
+				EditorGUILayout.LabelField( m_nativeItems[i] );
+			}
+			EditorGUI.indentLevel--;
+			EditorGUILayout.Separator();
+		}
 		void DrawMainBody()
 		{
 			EditorGUILayout.Separator();
+
+			if( m_nativeItems.Count > 0  )
+			{
+				NodeUtils.DrawNestedPropertyGroup( ref m_nativeItemsFoldout, NativeFoldoutStr, DrawNativeItems ,4);
+			}
+			
 			int itemCount = m_additionalItems.Count;
 			int markedToDelete = -1;
 			for( int i = 0; i < itemCount; i++ )
@@ -143,13 +176,15 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public virtual void AddToDataCollector( ref MasterNodeDataCollector dataCollector ) { }
+		public virtual void AddToDataCollector( ref MasterNodeDataCollector dataCollector , TemplateIncludePragmaContainter nativesContainer ) { }
 
 		public override void Destroy()
 		{
 			m_additionalItems.Clear();
 			m_additionalItems = null;
 			m_currentOwner = null;
+			m_nativeItems.Clear();
+			m_nativeItems = null;
 		}
 
 		public List<string> ItemsList { get { return m_additionalItems; } set { m_additionalItems = value; } }

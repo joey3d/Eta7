@@ -71,7 +71,7 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public void AddToClipboard( List<ParentNode> selectedNodes , Vector3 initialPosition )
+		public void AddToClipboard( List<ParentNode> selectedNodes , Vector3 initialPosition, ParentGraph graph )
 		{
 			//m_clipboardStrData.Clear();
 			//m_clipboardAuxData.Clear();
@@ -81,8 +81,7 @@ namespace AmplifyShaderEditor
 			int count = selectedNodes.Count;
 			for ( int i = 0; i < count; i++ )
 			{
-				
-				if ( UIUtils.CurrentWindow.IsShaderFunctionWindow || selectedNodes[ i ].UniqueId != masterNodeId )
+				if ( UIUtils.CurrentWindow.IsShaderFunctionWindow || !graph.IsMasterNode( selectedNodes[ i ] ))
 				{
 					string nodeData = string.Empty;
 					string connections = string.Empty;

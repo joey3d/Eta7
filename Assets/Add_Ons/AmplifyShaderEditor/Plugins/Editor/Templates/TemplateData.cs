@@ -110,14 +110,20 @@ namespace AmplifyShaderEditor
 		[SerializeField]
 		private TemplateTagsModuleData m_tagData = new TemplateTagsModuleData();
 
-
-		public TemplateData( string name ) : base( TemplateDataType.LegacySinglePass )
+		public TemplateData()
 		{
+			m_templateType = TemplateDataType.LegacySinglePass;
+		}
+
+		public TemplateData( string name )
+		{
+			m_templateType = TemplateDataType.LegacySinglePass;
 			m_name = name;
 		}
 
-		public TemplateData( string name, string guid ) : base( TemplateDataType.LegacySinglePass )
+		public TemplateData( string name, string guid )
 		{
+			m_templateType = TemplateDataType.LegacySinglePass;
 			m_communityTemplate = false;
 			if( !string.IsNullOrEmpty( guid ) )
 			{
@@ -149,8 +155,9 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public TemplateData( string name, string guid, string body ) : base( TemplateDataType.LegacySinglePass )
+		public TemplateData( string name, string guid, string body )
 		{
+			m_templateType = TemplateDataType.LegacySinglePass;
 			m_communityTemplate = true;
 			if( !string.IsNullOrEmpty( body ) )
 			{

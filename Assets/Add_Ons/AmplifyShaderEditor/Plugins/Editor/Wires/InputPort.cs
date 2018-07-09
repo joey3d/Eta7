@@ -53,7 +53,7 @@ namespace AmplifyShaderEditor
 		private int m_cachedDefaultTexShaderID = -1;
 
 		[SerializeField]
-		private bool m_drawInternalData = true;
+		private bool m_drawInternalData = false;
 
 		//[SerializeField]
 		//private RenderTexture m_inputPreview = null;
@@ -62,12 +62,19 @@ namespace AmplifyShaderEditor
 		private Material m_inputPreviewMaterial = null;
 		private Shader m_inputPreviewShader = null;
 
+		[SerializeField]
 		private int m_previewInternalInt = 0;
+		[SerializeField]
 		private float m_previewInternalFloat = 0;
+		[SerializeField]
 		private Vector2 m_previewInternalVec2 = Vector2.zero;
+		[SerializeField]
 		private Vector3 m_previewInternalVec3 = Vector3.zero;
+		[SerializeField]
 		private Vector4 m_previewInternalVec4 = Vector4.zero;
+		[SerializeField]
 		private Color m_previewInternalColor = Color.clear;
+		[SerializeField]
 		private Matrix4x4 m_previewInternalMatrix4x4 = Matrix4x4.identity;
 
 		private int m_propertyNameInt = 0;
@@ -142,7 +149,7 @@ namespace AmplifyShaderEditor
 		{
 			string[] data = String.IsNullOrEmpty( m_internalData ) ? null : m_internalData.Split( IOUtils.VECTOR_SEPARATOR );
 			bool reset = ( data == null || data.Length == 0 );
-
+			m_internalDataUpdated = false;
 			try
 			{
 				switch( m_dataType )
@@ -297,14 +304,17 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		void UpdateInternalDataFromVariables()
+		void UpdateInternalDataFromVariables( bool forceDecimal = false )
 		{
 			switch( m_dataType )
 			{
 				case WirePortDataType.OBJECT:
 				case WirePortDataType.FLOAT:
 				{
-					m_internalData = m_previewInternalFloat.ToString();
+					if( forceDecimal && m_previewInternalFloat == (int)m_previewInternalFloat )
+						m_internalData = m_previewInternalFloat.ToString("0.0##############"); // to make sure integer values like 0 or 1 are generated as 0.0 and 1.0
+					else
+						m_internalData = m_previewInternalFloat.ToString();
 					m_internalDataWrapper = string.Empty;
 				}
 				break;
@@ -421,7 +431,7 @@ namespace AmplifyShaderEditor
 			}
 			else
 			{
-				UpdateInternalDataFromVariables();
+				UpdateInternalDataFromVariables( true );
 				if( DataType == WirePortDataType.FLOAT3x3 )
 					result = Matrix3x3WrappedData();
 				else if( DataType == WirePortDataType.SAMPLER2D )
@@ -447,7 +457,7 @@ namespace AmplifyShaderEditor
 			}
 			else
 			{
-				UpdateInternalDataFromVariables();
+				UpdateInternalDataFromVariables( true );
 				if( !String.IsNullOrEmpty( m_internalDataWrapper ) )
 				{
 					if( DataType == WirePortDataType.FLOAT3x3 )
@@ -482,7 +492,7 @@ namespace AmplifyShaderEditor
 			}
 			else
 			{
-				UpdateInternalDataFromVariables();
+				UpdateInternalDataFromVariables( true );
 				if( !String.IsNullOrEmpty( m_internalDataWrapper ) )
 				{
 					if( DataType == WirePortDataType.FLOAT3x3 )
@@ -613,55 +623,71 @@ namespace AmplifyShaderEditor
 
 		public float FloatInternalData
 		{
-			set { m_previewInternalFloat = value; }
+			set { m_previewInternalFloat = value; m_internalDataUpdated = false; }
 			get { return m_previewInternalFloat; }
 		}
 
 		public int IntInternalData
 		{
-			set { m_previewInternalInt = value; }
+			set { m_previewInternalInt = value; m_internalDataUpdated = false; }
 			get { return m_previewInternalInt; }
 		}
 
 		public Vector2 Vector2InternalData
 		{
-			set { m_previewInternalVec2 = value; }
+			set { m_previewInternalVec2 = value; m_internalDataUpdated = false; }
 			get { return m_previewInternalVec2; }
 		}
 
 		public Vector3 Vector3InternalData
 		{
-			set { m_previewInternalVec3 = value; }
+			set { m_previewInternalVec3 = value; m_internalDataUpdated = false; }
 			get { return m_previewInternalVec3; }
 		}
 
 		public Vector4 Vector4InternalData
 		{
-			set { m_previewInternalVec4 = value; }
+			set { m_previewInternalVec4 = value; m_internalDataUpdated = false; }
 			get { return m_previewInternalVec4; }
 		}
 
 		public Color ColorInternalData
 		{
-			set { m_previewInternalColor = value; }
+			set { m_previewInternalColor = value; m_internalDataUpdated = false; }
 			get { return m_previewInternalColor; }
 		}
 
 		public Matrix4x4 Matrix4x4InternalData
 		{
-			set { m_previewInternalMatrix4x4 = value; }
+			set { m_previewInternalMatrix4x4 = value; m_internalDataUpdated = false; }
 			get { return m_previewInternalMatrix4x4; }
 		}
 
 		public string SamplerInternalData
 		{
-			set { InternalData = UIUtils.RemoveInvalidCharacters( value ); }
+			set { InternalData = UIUtils.RemoveInvalidCharacters( value ); m_internalDataUpdated = false; }
 			get { return m_internalData; }
 		}
 
 		public override void ForceClearConnection()
 		{
 			UIUtils.DeleteConnection( true, m_nodeId, m_portId, false, true );
+		}
+
+		private bool m_internalDataUpdated = false;
+		private string m_displayInternalData = string.Empty;
+		public string DisplayInternalData
+		{
+			get
+			{
+				if( !m_internalDataUpdated )
+				{
+					UpdateInternalDataFromVariables();
+					m_internalDataUpdated = true;
+					m_displayInternalData = "( "+ m_internalData + " )";
+				}
+				return m_displayInternalData;
+			}
 		}
 
 		public string InternalData
@@ -693,6 +719,7 @@ namespace AmplifyShaderEditor
 			// must be set to update internal data. do not delete
 			set
 			{
+				m_internalDataUpdated = false;
 				switch( DataType )
 				{
 					case WirePortDataType.FLOAT:
@@ -1302,6 +1329,18 @@ namespace AmplifyShaderEditor
 					{
 						return linkNode.GetInputPortByUniqueId( m_externalPortLink );
 					}
+				}
+				return null;
+			}
+		}
+
+		public ParentNode ExternalLinkNode
+		{
+			get
+			{
+				if( HasExternalLink )
+				{
+					return UIUtils.GetNode( m_externalNodeLink );
 				}
 				return null;
 			}

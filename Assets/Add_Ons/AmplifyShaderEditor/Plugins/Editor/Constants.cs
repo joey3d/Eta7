@@ -12,6 +12,7 @@ namespace AmplifyShaderEditor
 		public readonly static string UndoReplaceMasterNodeId = "Replacing Master Node";
 		public readonly static string UnityLightingLib = "Lighting.cginc";
 		public readonly static string UnityAutoLightLib = "AutoLight.cginc";
+		public readonly static string UnityBRDFLib = "UnityStandardBRDF.cginc";
 		public readonly static string LocalValueDecWithoutIdent = "{0} {1} = {2};";
 		public readonly static string LocalValueDefWithoutIdent = "{0} {1} {2};";
 		public readonly static string TilingOffsetFormat = "{0} * {1} + {2}";
@@ -23,7 +24,10 @@ namespace AmplifyShaderEditor
 		public static float NodeButtonDeltaX = 5;
 		public static float NodeButtonDeltaY = 11;
 
+		public readonly static string ReservedPropertyNameStr = "Property name '{0}' is reserved and cannot be used";
+		public readonly static string NumericPropertyNameStr = "Property name '{0}' is numeric thus cannot be used";
 		public readonly static string DeprecatedMessageStr = "Node '{0}' is deprecated. Use node '{1}' instead.";
+		public readonly static string UndoChangePropertyTypeNodesId = "Changing Property Types";
 		public readonly static string UndoChangeTypeNodesId = "Changing Nodes Types";
 		public readonly static string UndoMoveNodesId = "Moving Nodes";
 		public readonly static string UndoRegisterFullGrapId = "Register Graph";
@@ -31,6 +35,8 @@ namespace AmplifyShaderEditor
 		public readonly static string UndoRemoveNodeFromCommentaryId = "Remove node from Commentary";
 		public readonly static string UndoCreateDynamicPortId = "Create Dynamic Port";
 		public readonly static string UndoDeleteDynamicPortId = "Destroy Dynamic Port";
+		public readonly static string UndoRegisterNodeId = "Register Object";
+		public readonly static string UndoUnregisterNodeId = "Unregister Object";
 		public readonly static string UndoCreateNodeId = "Create Object";
 		public readonly static string UndoPasteNodeId = "Paste Object";
 		public readonly static string UndoDeleteNodeId = "Destroy Object";
@@ -204,7 +210,7 @@ namespace AmplifyShaderEditor
 
 
 		public readonly static string VFaceVariable = "ASEVFace";
-		public readonly static string VFaceInput = "fixed ASEVFace : VFACE";
+		public readonly static string VFaceInput = "half ASEVFace : VFACE";
 
 		public readonly static string ColorVariable = "vertexColor";
 		public readonly static string ColorInput = "float4 vertexColor : COLOR";
@@ -219,18 +225,37 @@ namespace AmplifyShaderEditor
 
 		public readonly static string[] WikiInvalidChars = { "#", "<", ">", "[", "]", "|", "{", "}", "%", "+", "?", "\\", "/", ",", ";", "." };
 
-		public readonly static Dictionary<string, string> UrlReplacementStringValues = new Dictionary<string, string>() { { " ", "_" }, { "[", "" }, { "]", "" } };
+		public readonly static Dictionary<string, string> UrlReplacementStringValues = new Dictionary<string, string>()
+		{
+			{ " = ", "Equals" },
+			{ " == ", "Equals" },
+			{ " != ", "NotEqual" },
+			{ " \u2260 ", "NotEqual" },
+			{ " > ", "Greater" },
+			{ " \u2265 " , "GreaterOrEqual" },
+			{ " >= ", "GreaterOrEqual" },
+			{ " < ", "Less" },
+			{ " \u2264 ", "LessOrEqual" },
+			{ " <= ", "LessOrEqual" },
+			{ " ", "_" },
+			{ "[", "" },
+			{ "]", "" }
+		};
 
-		public readonly static Dictionary<string, string> ReplacementStringValues = new Dictionary<string, string>() {  { " = ", "Equals" },
-																														{ " == ", "Equals" },
-																														{ " != ", "NotEqual" },
-																														{ " \u2260 ", "NotEqual" },
-																														{ " > ", "Greater" },
-																														{ " \u2265 ", "GreaterOrEqual" },
-																														{ " >= ", "GreaterOrEqual" },
-																														{ " < ", "Less" },
-																														{ " \u2264 ", "LessOrEqual" },
-																														{ " <= ", "LessOrEqual" }};
+		public readonly static Dictionary<string, string> ReplacementStringValues = new Dictionary<string, string>()
+		{
+			{ " = ", "Equals" },
+			{ " == ", "Equals" },
+			{ " != ", "NotEqual" },
+			{ " \u2260 ", "NotEqual" },
+			{ " > ", "Greater" },
+			{ " \u2265 ", "GreaterOrEqual" },
+			{ " >= ", "GreaterOrEqual" },
+			{ " < ", "Less" },
+			{ " \u2264 ", "LessOrEqual" },
+			{ " <= ", "LessOrEqual" }
+		};
+
 		public readonly static string InternalData = "INTERNAL_DATA";
 
 

@@ -83,6 +83,7 @@ namespace AmplifyShaderEditor
 			AddInputPort( WirePortDataType.FLOAT, false, NormalScaleStr, -1, MasterNodePortCategory.Fragment, 3 );
 			AddInputPort( WirePortDataType.FLOAT2, false, "DDX", -1, MasterNodePortCategory.Fragment, 4 );
 			AddInputPort( WirePortDataType.FLOAT2, false, "DDY", -1, MasterNodePortCategory.Fragment, 5 );
+			m_inputPorts[ 2 ].AutoDrawInternalData = true;
 			m_texPort = m_inputPorts[ 0 ];
 			m_uvPort = m_inputPorts[ 1 ];
 			m_indexPort = m_inputPorts[ 2 ];
@@ -585,8 +586,8 @@ namespace AmplifyShaderEditor
 
 		public override string GenerateShaderForOutput( int outputId, ref MasterNodeDataCollector dataCollector, bool ignoreLocalvar )
 		{
-			if( m_outputPorts[ 0 ].IsLocalValue )
-				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+			if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+				return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 
 
 			OnPropertyNameChanged();
@@ -679,7 +680,7 @@ namespace AmplifyShaderEditor
 
 			string result = string.Empty;
 
-			if( m_containerGraph.CurrentMasterNode.CurrentDataCollector.IsTemplate && m_containerGraph.CurrentMasterNode.CurrentDataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
+			if( dataCollector.IsTemplate && dataCollector.TemplateDataCollectorInstance.CurrentSRPType == TemplateSRPType.Lightweight )
 			{
 				//CAREFUL mipbias here means derivative (this needs index changes)
 				//TODO: unity now supports bias as well
@@ -719,7 +720,7 @@ namespace AmplifyShaderEditor
 				result = string.Format( m_normalMapUnpackMode, result );
 
 			RegisterLocalVariable( 0, result, ref dataCollector, "texArray" + OutputId );
-			return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue );
+			return GetOutputVectorItem( 0, outputId, m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory ) );
 		}
 
 		public override string PropertyName

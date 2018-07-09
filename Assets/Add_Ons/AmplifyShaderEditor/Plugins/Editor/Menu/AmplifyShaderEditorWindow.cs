@@ -21,6 +21,7 @@ namespace AmplifyShaderEditor
 		public const string PasteCommand = "Paste";
 		public const string SelectAll = "SelectAll";
 		public const string Duplicate = "Duplicate";
+		public const string ObjectSelectorClosed = "ObjectSelectorClosed";
 		public const string LiveShaderError = "Live Shader only works with an assigned Master Node on the graph";
 
 		//public Texture2D MasterNodeOnTexture = null;
@@ -45,6 +46,12 @@ namespace AmplifyShaderEditor
 		private Texture2D m_wireTexture;
 
 		[SerializeField]
+		TemplatesManager m_templatesManager;
+
+		[SerializeField]
+		private InnerWindowEditorVariables m_innerEditorVariables;
+
+		[ SerializeField]
 		private string m_lastpath;
 
 		[SerializeField]
@@ -98,7 +105,7 @@ namespace AmplifyShaderEditor
 		private bool m_liveShaderEditing = false;
 
 		[SerializeField]
-		private bool m_shaderIsModified = true;
+		private bool m_shaderIsModified = false;
 
 		[SerializeField]
 		private string m_lastOpenedLocation = string.Empty;
@@ -213,22 +220,15 @@ namespace AmplifyShaderEditor
 
 		private int m_repaintCount = 0;
 		private bool m_forceUpdateFromMaterialFlag = false;
-
-		private VersionInfo m_versionInfo;
-
+	
 		private UnityEngine.Object m_delayedLoadObject = null;
 		private double m_focusOnSelectionTimestamp;
 		private double m_focusOnMasterNodeTimestamp;
 		private double m_wiredDoubleTapTimestamp;
 
 		private bool m_globalPreview = false;
-
-		private bool m_expandedStencil = false;
-		private bool m_expandedTesselation = false;
-		private bool m_expandedDepth = false;
-		private bool m_expandedRenderingPlatforms = false;
-		private bool m_expandedRenderingOptions = false;
-		private bool m_expandedProperties = false;
+		private bool m_globalShowInternalData = false;
+		
 		private const double AutoZoomTime = 0.25;
 		private const double ToggleTime = 0.25;
 		private const double WiredDoubleTapTime = 0.25;
@@ -295,7 +295,7 @@ namespace AmplifyShaderEditor
 		private ParentNode m_nodeToFocus = null;
 		private float m_zoomToFocus = 1.0f;
 		private bool m_selectNodeToFocus = true;
-		private bool m_isLoading = false;
+		
 
 		public bool CheckFunctions = false;
 
@@ -348,6 +348,12 @@ namespace AmplifyShaderEditor
 
 		public static void ConvertShaderToASE( Shader shader )
 		{
+			if( UIUtils.IsUnityNativeShader( shader ) )
+			{
+				Debug.LogWarningFormat( "Action not allowed. Attempting to load the native {0} shader into Amplify Shader Editor", shader.name );
+				return;
+			}
+
 			if( IOUtils.AllOpenedWindows.Count > 0 )
 			{
 				AmplifyShaderEditorWindow openedTab = null;
@@ -531,11 +537,40 @@ namespace AmplifyShaderEditor
 			}
 			return currTime - m_inactivityTime;
 		}
-
+		
 		// Shader Graph window
 		public override void OnEnable()
 		{
 			base.OnEnable();
+			if( m_templatesManager == null )
+			{
+				m_templatesManager = IOUtils.FirstValidTemplatesManager;
+				if( m_templatesManager == null )
+				{
+					m_templatesManager = ScriptableObject.CreateInstance<TemplatesManager>();
+					m_templatesManager.Init();
+					if( TemplatesManager.ShowDebugMessages )
+						Debug.Log( "Creating Manager" );
+				}
+				else
+				{
+					if( TemplatesManager.ShowDebugMessages )
+						Debug.Log( "Assigning Manager" );
+				}
+			}
+			else if( !m_templatesManager.Initialized )
+			{
+				if( TemplatesManager.ShowDebugMessages )
+					Debug.Log( "Re-Initializing Manager" );
+				m_templatesManager.Init();
+			}
+
+			if( m_innerEditorVariables == null )
+			{
+				m_innerEditorVariables = new InnerWindowEditorVariables();
+				m_innerEditorVariables.Initialize();
+			}
+
 			if( m_mainGraphInstance == null )
 			{
 				m_mainGraphInstance = CreateInstance<ParentGraph>();
@@ -556,9 +591,7 @@ namespace AmplifyShaderEditor
 			// Only runs once for multiple windows
 			EditorApplication.update -= IOUtils.UpdateIO;
 			EditorApplication.update += IOUtils.UpdateIO;
-
-			TemplatesManager.Init();
-
+			
 			EditorApplication.update -= UpdateTime;
 			EditorApplication.update -= UpdateNodePreviewList;
 
@@ -603,11 +636,11 @@ namespace AmplifyShaderEditor
 			m_focusOnSelectionTimestamp = EditorApplication.timeSinceStartup;
 			m_focusOnMasterNodeTimestamp = EditorApplication.timeSinceStartup;
 
-			m_nodeParametersWindow.IsMaximized = EditorVariablesManager.NodeParametersMaximized.Value;
+			m_nodeParametersWindow.IsMaximized = m_innerEditorVariables.NodeParametersMaximized;
 			if( DebugConsoleWindow.UseShaderPanelsInfo )
 				m_nodeParametersWindow.IsMaximized = m_nodeParametersWindowMaximized;
 
-			m_paletteWindow.IsMaximized = EditorVariablesManager.NodePaletteMaximized.Value;
+			m_paletteWindow.IsMaximized = m_innerEditorVariables.NodePaletteMaximized;
 			if( DebugConsoleWindow.UseShaderPanelsInfo )
 				m_paletteWindow.IsMaximized = m_paletteWindowMaximized;
 
@@ -685,10 +718,19 @@ namespace AmplifyShaderEditor
 				ForceRepaint();
 			} );
 
+			GlobalShowInternalData = EditorPrefs.GetBool( "GlobalShowInternalData", false );
+			m_shortcutManager.RegisterEditorShortcut( true, KeyCode.I, "Global Show Internal Data", () =>
+			{
+				GlobalShowInternalData = !GlobalShowInternalData;
+				EditorPrefs.SetBool( "GlobalShowInternalData", GlobalShowInternalData );
+				IOUtils.DumpTemplateManagers();
+				ForceRepaint();
+			} );
+
 			m_shortcutManager.RegisterEditorShortcut( true, KeyCode.Delete, "Delete selected nodes", DeleteSelectedNodeWithRepaint );
 			m_shortcutManager.RegisterEditorShortcut( true, KeyCode.Backspace, "Delete selected nodes", DeleteSelectedNodeWithRepaint );
 
-			m_liveShaderEditing = EditorVariablesManager.LiveMode.Value;
+			m_liveShaderEditing = m_innerEditorVariables.LiveMode;
 
 			UpdateLiveUI();
 		}
@@ -696,7 +738,6 @@ namespace AmplifyShaderEditor
 
 		public AmplifyShaderEditorWindow()
 		{
-			m_versionInfo = new VersionInfo();
 			m_minNodePos = new Vector2( float.MaxValue, float.MaxValue );
 			m_maxNodePos = new Vector2( float.MinValue, float.MinValue );
 
@@ -775,7 +816,7 @@ namespace AmplifyShaderEditor
 
 		public void SetTemplateShader( string templateName, bool writeDefaultData )
 		{
-			TemplateDataParent templateData = TemplatesManager.GetTemplate( ( string.IsNullOrEmpty( templateName ) ? "6e114a916ca3e4b4bb51972669d463bf" : templateName ) );
+			TemplateDataParent templateData = m_templatesManager.GetTemplate( ( string.IsNullOrEmpty( templateName ) ? "6e114a916ca3e4b4bb51972669d463bf" : templateName ) );
 			m_mainGraphInstance.ReplaceMasterNode( AvailableShaderTypes.Template, writeDefaultData, templateData );
 		}
 
@@ -784,6 +825,7 @@ namespace AmplifyShaderEditor
 			DeleteSelectedNodes();
 			SetSaveIsDirty();
 		}
+
 
 		void UndoRedoPerformed()
 		{
@@ -798,10 +840,7 @@ namespace AmplifyShaderEditor
 			Undo.ClearUndo( this );
 
 			m_initialized = false;
-
-			if( IOUtils.AllOpenedWindows.Count == 1 )
-				TemplatesManager.Destroy();
-
+			
 			m_nodeExporterUtils.Destroy();
 			m_nodeExporterUtils = null;
 
@@ -871,6 +910,7 @@ namespace AmplifyShaderEditor
 			m_genericMessageUI = null;
 			m_genericMessageContent = null;
 
+			m_dragAndDropTool.Destroy();
 			m_dragAndDropTool = null;
 
 			m_openedShaderFunction = null;
@@ -886,6 +926,14 @@ namespace AmplifyShaderEditor
 			Selection.selectionChanged -= OnProjectSelectionChanged;
 
 			IOUtils.AllOpenedWindows.Remove( this );
+
+			if( IOUtils.AllOpenedWindows.Count == 0 )
+			{
+				m_templatesManager.Destroy();
+				ScriptableObject.DestroyImmediate( m_templatesManager );
+			}
+			m_templatesManager = null;
+
 			IOUtils.Destroy();
 
 			Resources.UnloadUnusedAssets();
@@ -969,7 +1017,7 @@ namespace AmplifyShaderEditor
 		}
 
 
-		[MenuItem( "Assets/Create/Amplify Shader/Surface Shader", false, 83 )]
+		[MenuItem( "Assets/Create/Amplify Shader/Surface", false, 83 )]
 		[MenuItem( "Assets/Create/Shader/Amplify Surface Shader" )]
 		public static void CreateNewShader()
 		{
@@ -1307,7 +1355,7 @@ namespace AmplifyShaderEditor
 			m_customGraph = null;
 			m_cacheSaveOp = false;
 			ShaderIsModified = false;
-			m_mainGraphInstance.LoadedShaderVersion = m_versionInfo.FullNumber;
+			m_mainGraphInstance.LoadedShaderVersion = VersionInfo.FullNumber;
 			m_lastTimeSaved = EditorApplication.timeSinceStartup;
 
 			if( m_mainGraphInstance.CurrentMasterNodeId == Constants.INVALID_NODE_ID )
@@ -1443,7 +1491,7 @@ namespace AmplifyShaderEditor
 				case ToolButtonType.Live:
 				{
 					m_liveShaderEditing = !m_liveShaderEditing;
-					EditorVariablesManager.LiveMode.Value = m_liveShaderEditing;
+					m_innerEditorVariables.LiveMode = m_liveShaderEditing;
 					// 0 off
 					// 1 on
 					// 2 pending
@@ -1777,8 +1825,12 @@ namespace AmplifyShaderEditor
 
 								if( doubleTap )
 								{
+									Undo.RegisterCompleteObjectUndo( this, Constants.UndoCreateConnectionId );
+									Undo.RegisterCompleteObjectUndo( m_mainGraphInstance, Constants.UndoCreateConnectionId );
+									Undo.RecordObject( outNode, Constants.UndoCreateConnectionId );
+									Undo.RecordObject( inNode, Constants.UndoCreateConnectionId );
+									
 									ParentNode wireNode = m_mainGraphInstance.CreateNode( typeof( WireNode ), true );
-
 									if( wireNode != null )
 									{
 										wireNode.Vec2Position = TranformedMousePos;
@@ -1788,6 +1840,7 @@ namespace AmplifyShaderEditor
 
 										SetSaveIsDirty();
 										ForceRepaint();
+										Undo.IncrementCurrentGroup();
 									}
 								}
 
@@ -2676,6 +2729,11 @@ namespace AmplifyShaderEditor
 							m_currentEvent.Use();
 						}
 						break;
+						case ObjectSelectorClosed:
+						{
+							m_mouseDownOnValidArea = false;
+						}
+						break;
 					}
 				}
 				break;
@@ -2706,6 +2764,10 @@ namespace AmplifyShaderEditor
 							PasteFromClipboard( true );
 						}
 						break;
+						case ObjectSelectorClosed:
+						{
+							m_mouseDownOnValidArea = false;
+						}break;
 					}
 				}
 				break;
@@ -2790,25 +2852,27 @@ namespace AmplifyShaderEditor
 					}
 				}
 			}
-
+			
 			UIUtils.ClearUndoHelper();
-			Undo.IncrementCurrentGroup();
+			//Undo.IncrementCurrentGroup();
 			//Record deleted nodes
 			UIUtils.MarkUndoAction();
 			Undo.RegisterCompleteObjectUndo( this, Constants.UndoDeleteNodeId );
-			Undo.RecordObject( m_mainGraphInstance, Constants.UndoDeleteNodeId );
+			Undo.RegisterCompleteObjectUndo( m_mainGraphInstance, Constants.UndoDeleteNodeId );
 			Undo.RecordObjects( selectedNodes, Constants.UndoDeleteNodeId );
 			Undo.RecordObjects( extraNodes.ToArray(), Constants.UndoDeleteNodeId );
-			Undo.IncrementCurrentGroup();
 
 			//Record deleting connections
 			for( int i = 0; i < selectedNodes.Length; i++ )
 			{
-				m_mainGraphInstance.DeleteAllConnectionFromNode( selectedNodes[ i ], false, true );
+				selectedNodes[ i ].Alive = false;
+				m_mainGraphInstance.DeleteAllConnectionFromNode( selectedNodes[ i ], false, true , true );
 			}
 			//Delete
 			m_mainGraphInstance.DeleteNodesOnArray( ref selectedNodes );
 
+			
+			//Undo.IncrementCurrentGroup();
 			extraNodes.Clear();
 			extraNodes = null;
 
@@ -2942,7 +3006,6 @@ namespace AmplifyShaderEditor
 
 		void OnLostFocus()
 		{
-
 			m_lostFocus = true;
 			m_multipleSelectionActive = false;
 			m_wireReferenceUtils.InvalidateReferences();
@@ -2957,7 +3020,7 @@ namespace AmplifyShaderEditor
 			m_copyPasteDeltaPos = new Vector2( float.MaxValue, float.MaxValue );
 			m_clipboard.ClearClipboard();
 			m_copyPasteInitialPos = m_mainGraphInstance.SelectedNodesCentroid;
-			m_clipboard.AddToClipboard( m_mainGraphInstance.SelectedNodes, m_copyPasteInitialPos );
+			m_clipboard.AddToClipboard( m_mainGraphInstance.SelectedNodes, m_copyPasteInitialPos, m_mainGraphInstance );
 		}
 
 		ParentNode CreateNodeFromClipboardData( int clipId )
@@ -3024,6 +3087,8 @@ namespace AmplifyShaderEditor
 
 					if( inNode != null && outNode != null )
 					{
+						inNode.IsNodeBeingCopied = true;
+						outNode.IsNodeBeingCopied = true;
 						inputPort = inNode.GetInputPortByUniqueId( InPortId );
 						outputPort = outNode.GetOutputPortByUniqueId( OutPortId );
 						if( inputPort != null && outputPort != null )
@@ -3034,6 +3099,9 @@ namespace AmplifyShaderEditor
 							inNode.OnInputPortConnected( InPortId, newOutNodeId, OutPortId );
 							outNode.OnOutputPortConnected( OutPortId, newInNodeId, InPortId );
 						}
+
+						inNode.IsNodeBeingCopied = false;
+						outNode.IsNodeBeingCopied = false;
 					}
 				}
 			}
@@ -3082,6 +3150,14 @@ namespace AmplifyShaderEditor
 					m_mainGraphInstance.SelectNode( node, true, false );
 				}
 			}
+			
+			if( copyConnections )
+			{
+				for( int i = 0; i < m_clipboard.CurrentClipboardStrData.Count; i++ )
+				{
+					CreateConnectionsFromClipboardData( i );
+				}
+			}
 
 			// Refresh external references must always be called after all nodes are created
 			for( int i = 0; i < createdNodes.Count; i++ )
@@ -3090,14 +3166,6 @@ namespace AmplifyShaderEditor
 			}
 			createdNodes.Clear();
 			createdNodes = null;
-
-			if( copyConnections )
-			{
-				for( int i = 0; i < m_clipboard.CurrentClipboardStrData.Count; i++ )
-				{
-					CreateConnectionsFromClipboardData( i );
-				}
-			}
 			//Need to force increment on Undo because if not Undo may incorrectly group consecutive pastes
 			Undo.IncrementCurrentGroup();
 
@@ -3112,7 +3180,7 @@ namespace AmplifyShaderEditor
 			string graphInfo = IOUtils.ShaderBodyBegin + '\n';
 			string nodesInfo = "";
 			string connectionsInfo = "";
-			graphInfo += m_versionInfo.FullLabel + '\n';
+			graphInfo += VersionInfo.FullLabel + '\n';
 			graphInfo += (
 							m_cameraInfo.x.ToString() + IOUtils.FIELD_SEPARATOR +
 							m_cameraInfo.y.ToString() + IOUtils.FIELD_SEPARATOR +
@@ -3134,8 +3202,9 @@ namespace AmplifyShaderEditor
 		}
 
 		// TODO: this need to be fused to the main load function somehow
-		public static void LoadFromMeta( ref ParentGraph graph, GraphContextMenu contextMenu, VersionInfo versionInfo, string meta )
+		public static void LoadFromMeta( ref ParentGraph graph, GraphContextMenu contextMenu, string meta )
 		{
+			graph.IsLoading = true;
 			graph.CleanNodes();
 
 			int checksumId = meta.IndexOf( IOUtils.CHECKSUM );
@@ -3176,17 +3245,17 @@ namespace AmplifyShaderEditor
 								Debug.LogException( e );
 							}
 
-							if( version > versionInfo.FullNumber )
-							{
+							//if( version > versionInfo.FullNumber )
+							//{
 								//ShowMessage( "This shader was created on a new ASE version\nPlease install v." + version );
-							}
+							//}
 
 							if( DebugConsoleWindow.DeveloperMode )
 							{
-								if( version < versionInfo.FullNumber )
-								{
+								//if( version < versionInfo.FullNumber )
+								//{
 									//ShowMessage( "This shader was created on a older ASE version\nSaving will update it to the new one." );
-								}
+								//}
 							}
 
 							graph.LoadedShaderVersion = version;
@@ -3217,6 +3286,7 @@ namespace AmplifyShaderEditor
 								dummyCameraInfo.height = Convert.ToSingle( cameraParams[ 3 ] );
 								dummyCameraOffset.x = Convert.ToSingle( cameraParams[ 4 ] );
 								dummyCameraOffset.y = Convert.ToSingle( cameraParams[ 5 ] );
+
 								//dummyCameraZoom = Convert.ToSingle( cameraParams[ 6 ] );
 								//dummyNodeParametersWindowMaximized = Convert.ToBoolean( cameraParams[ 7 ] );
 								//dummyPaletteWindowMaximized = Convert.ToBoolean( cameraParams[ 8 ] );
@@ -3394,62 +3464,22 @@ namespace AmplifyShaderEditor
 								break;
 							}
 						}
-
-						graph.ForceSignalPropagationOnMasterNode();
-						graph.RefreshExternalReferences();
-						graph.LoadedShaderVersion = versionInfo.FullNumber;
-						//if ( shaderFunction != null )
-						//{
-						//	UIUtils.CurrentWindow.CurrentGraph.CurrentShaderFunction = shaderFunction;
-						//	graph.ForceSignalPropagationOnMasterNode();
-						//	m_onLoadDone = 2;
-						//	if ( applyDummy )
-						//	{
-						//		m_cameraInfo = dummyCameraInfo;
-						//		m_cameraOffset = dummyCameraOffset;
-						//		CameraZoom = dummyCameraZoom;
-						//		if ( DebugConsoleWindow.UseShaderPanelsInfo )
-						//		{
-						//			m_nodeParametersWindowMaximized = m_nodeParametersWindow.IsMaximized = dummyNodeParametersWindowMaximized;
-						//			m_paletteWindowMaximized = m_paletteWindow.IsMaximized = dummyPaletteWindowMaximized;
-						//		}
-						//	}
-
-						//}
-						//else
-						//{
-						//	Shader shader = AssetDatabase.LoadAssetAtPath<Shader>( pathname );
-						//	if ( shader )
-						//	{
-						//		graph.ForceSignalPropagationOnMasterNode();
-						//		graph.UpdateShaderOnMasterNode( shader );
-						//		m_onLoadDone = 2;
-						//		if ( applyDummy )
-						//		{
-						//			m_cameraInfo = dummyCameraInfo;
-						//			m_cameraOffset = dummyCameraOffset;
-						//			CameraZoom = dummyCameraZoom;
-						//			if ( DebugConsoleWindow.UseShaderPanelsInfo )
-						//			{
-						//				m_nodeParametersWindowMaximized = m_nodeParametersWindow.IsMaximized = dummyNodeParametersWindowMaximized;
-						//				m_paletteWindowMaximized = m_paletteWindow.IsMaximized = dummyPaletteWindowMaximized;
-						//			}
-						//		}
-						//	}
-						//	else
-						//	{
-						//		ShowMessage( "Could not load shader asset" );
-						//	}
-						//}
 					}
 				}
 			}
+
+			graph.CheckForDuplicates();
+			graph.UpdateRegisters();
+			graph.RefreshExternalReferences();
+			graph.ForceSignalPropagationOnMasterNode();
+			graph.LoadedShaderVersion = VersionInfo.FullNumber;
 			//Reset();
+			graph.IsLoading = false;
 		}
 
 		public ShaderLoadResult LoadFromDisk( string pathname, AmplifyShaderFunction shaderFunction = null )
 		{
-			m_isLoading = true;
+			m_mainGraphInstance.IsLoading = true;
 			System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
 
 			FullCleanUndoStack();
@@ -3485,6 +3515,7 @@ namespace AmplifyShaderEditor
 			m_mainGraphInstance.CleanNodes();
 			Reset();
 
+			Shader shader = null;
 			ShaderLoadResult loadResult = ShaderLoadResult.LOADED;
 			// Find checksum value on body
 			int checksumId = buffer.IndexOf( IOUtils.CHECKSUM );
@@ -3525,14 +3556,14 @@ namespace AmplifyShaderEditor
 								Debug.LogException( e );
 							}
 
-							if( version > m_versionInfo.FullNumber )
+							if( version > VersionInfo.FullNumber )
 							{
 								ShowMessage( "This shader was created on a new ASE version\nPlease install v." + version );
 							}
 
 							if( DebugConsoleWindow.DeveloperMode )
 							{
-								if( version < m_versionInfo.FullNumber )
+								if( version < VersionInfo.FullNumber )
 								{
 									ShowMessage( "This shader was created on a older ASE version\nSaving will update it to the new one." );
 								}
@@ -3567,6 +3598,14 @@ namespace AmplifyShaderEditor
 								dummyCameraOffset.x = Convert.ToSingle( cameraParams[ 4 ] );
 								dummyCameraOffset.y = Convert.ToSingle( cameraParams[ 5 ] );
 								dummyCameraZoom = Convert.ToSingle( cameraParams[ 6 ] );
+								
+								float centerWidth = ( this.position.width - dummyCameraInfo.width ) * 0.5f * dummyCameraZoom;
+								float centerHeight = ( this.position.height - dummyCameraInfo.height ) * 0.5f * dummyCameraZoom;
+
+								dummyCameraInfo.x += centerWidth;
+								dummyCameraOffset.x += centerWidth;
+								dummyCameraInfo.y += centerHeight;
+								dummyCameraOffset.y += centerHeight;
 								dummyNodeParametersWindowMaximized = Convert.ToBoolean( cameraParams[ 7 ] );
 								dummyPaletteWindowMaximized = Convert.ToBoolean( cameraParams[ 8 ] );
 							}
@@ -3751,16 +3790,9 @@ namespace AmplifyShaderEditor
 								break;
 							}
 						}
+
 						if( shaderFunction != null )
 						{
-							if( UIUtils.CurrentWindow.CurrentGraph.CurrentFunctionOutput == null )
-							{
-								//Fix in case a function output node is not marked as main node
-								UIUtils.CurrentWindow.CurrentGraph.AssignMasterNode( UIUtils.FunctionOutputList()[ 0 ], false );
-							}
-
-							UIUtils.CurrentWindow.CurrentGraph.CurrentShaderFunction = shaderFunction;
-							m_mainGraphInstance.ForceSignalPropagationOnMasterNode();
 							m_onLoadDone = 2;
 							if( applyDummy )
 							{
@@ -3777,11 +3809,10 @@ namespace AmplifyShaderEditor
 						}
 						else
 						{
-							Shader shader = AssetDatabase.LoadAssetAtPath<Shader>( pathname );
+							shader = AssetDatabase.LoadAssetAtPath<Shader>( pathname );
 							if( shader )
 							{
-								m_mainGraphInstance.ForceSignalPropagationOnMasterNode();
-								m_mainGraphInstance.UpdateShaderOnMasterNode( shader );
+								
 								m_onLoadDone = 2;
 								if( applyDummy )
 								{
@@ -3793,11 +3824,6 @@ namespace AmplifyShaderEditor
 										m_nodeParametersWindowMaximized = m_nodeParametersWindow.IsMaximized = dummyNodeParametersWindowMaximized;
 										m_paletteWindowMaximized = m_paletteWindow.IsMaximized = dummyPaletteWindowMaximized;
 									}
-								}
-
-								if( m_mainGraphInstance.CurrentCanvasMode == NodeAvailability.TemplateShader )
-								{
-									m_mainGraphInstance.RefreshLinkedMasterNodes();
 								}
 							}
 							else
@@ -3824,16 +3850,41 @@ namespace AmplifyShaderEditor
 			//m_mainGraphInstance.LoadedShaderVersion = m_versionInfo.FullNumber;
 			if( UIUtils.CurrentMasterNode() )
 				UIUtils.CurrentMasterNode().ForcePortType();
+
 			UIUtils.DirtyMask = true;
 			m_checkInvalidConnections = true;
 
+			m_mainGraphInstance.CheckForDuplicates();
 			m_mainGraphInstance.UpdateRegisters();
 			m_mainGraphInstance.RefreshExternalReferences();
-			m_mainGraphInstance.LoadedShaderVersion = m_versionInfo.FullNumber;
+			m_mainGraphInstance.ForceSignalPropagationOnMasterNode();
+
+			if( shaderFunction != null )
+			{
+				//if( CurrentGraph.CurrentFunctionOutput == null )
+				//{
+				//	//Fix in case a function output node is not marked as main node
+				//	CurrentGraph.AssignMasterNode( UIUtils.FunctionOutputList()[ 0 ], false );
+				//}
+				CurrentGraph.CurrentShaderFunction = shaderFunction;
+			}
+			else
+			{
+				if( shader != null )
+				{
+					m_mainGraphInstance.UpdateShaderOnMasterNode( shader );
+					if( m_mainGraphInstance.CurrentCanvasMode == NodeAvailability.TemplateShader )
+					{
+						m_mainGraphInstance.RefreshLinkedMasterNodes();
+					}
+				}
+			}
+
+			m_mainGraphInstance.LoadedShaderVersion = VersionInfo.FullNumber;
 
 			System.Threading.Thread.CurrentThread.CurrentCulture = System.Threading.Thread.CurrentThread.CurrentUICulture;
 
-			m_isLoading = false;
+			m_mainGraphInstance.IsLoading = false;
 			return loadResult;
 		}
 
@@ -3922,7 +3973,7 @@ namespace AmplifyShaderEditor
 
 						if( m_replaceMasterNodeDataFromCache )
 						{
-							TemplateDataParent templateData = TemplatesManager.GetTemplate( m_replaceMasterNodeData );
+							TemplateDataParent templateData = m_templatesManager.GetTemplate( m_replaceMasterNodeData );
 							m_mainGraphInstance.CrossCheckTemplateNodes( templateData );
 							//m_clipboard.GetMultiPassNodesFromClipboard( m_mainGraphInstance.MultiPassMasterNodes.NodesList );
 						}
@@ -3985,10 +4036,10 @@ namespace AmplifyShaderEditor
 
 			m_currentInactiveTime = CalculateInactivityTime();
 
-			if( m_nodeParametersWindow != null && EditorVariablesManager.NodeParametersMaximized.Value != m_nodeParametersWindow.IsMaximized )
-				EditorVariablesManager.NodeParametersMaximized.Value = m_nodeParametersWindow.IsMaximized;
-			if( m_paletteWindow != null && EditorVariablesManager.NodePaletteMaximized.Value != m_paletteWindow.IsMaximized )
-				EditorVariablesManager.NodePaletteMaximized.Value = m_paletteWindow.IsMaximized;
+			if( m_nodeParametersWindow != null && m_innerEditorVariables.NodeParametersMaximized!= m_nodeParametersWindow.IsMaximized )
+				m_innerEditorVariables.NodeParametersMaximized = m_nodeParametersWindow.IsMaximized;
+			if( m_paletteWindow != null && m_innerEditorVariables.NodePaletteMaximized != m_paletteWindow.IsMaximized )
+				m_innerEditorVariables.NodePaletteMaximized = m_paletteWindow.IsMaximized;
 
 			if( m_checkInvalidConnections )
 			{
@@ -4342,7 +4393,7 @@ namespace AmplifyShaderEditor
 			if( m_isDirty )
 			{
 				m_isDirty = false;
-				ShaderIsModified = true;
+				//ShaderIsModified = true;
 				EditorUtility.SetDirty( this );
 			}
 
@@ -4505,7 +4556,7 @@ namespace AmplifyShaderEditor
 		void OnNodeStoppedMovingEvent( ParentNode node )
 		{
 			CheckZoomBoundaries( node.Vec2Position );
-			ShaderIsModified = true;
+			//ShaderIsModified = true;
 		}
 
 		void OnRefreshFunctionNodeEvent( FunctionNode node )
@@ -4930,13 +4981,15 @@ namespace AmplifyShaderEditor
 					if( masterNode != null && masterNode.CurrentShader != null )
 					{
 						m_toolsWindow.SetStateOnButton( ToolButtonType.Update, m_shaderIsModified ? 0 : 2 );
+						UpdateTabTitle( masterNode.ShaderName, m_shaderIsModified );
 					}
 					else
 					{
 						m_toolsWindow.SetStateOnButton( ToolButtonType.Update, 1 );
 					}
-					if( m_mainGraphInstance.CurrentStandardSurface != null )
-						UpdateTabTitle( m_mainGraphInstance.CurrentStandardSurface.ShaderName, m_shaderIsModified );
+
+					//if( m_mainGraphInstance.CurrentStandardSurface != null )
+					//	UpdateTabTitle( m_mainGraphInstance.CurrentStandardSurface.ShaderName, m_shaderIsModified );
 				}
 				else
 				{
@@ -4958,6 +5011,12 @@ namespace AmplifyShaderEditor
 		{
 			get { return m_globalPreview; }
 			set { m_globalPreview = value; }
+		}
+
+		public bool GlobalShowInternalData
+		{
+			get { return m_globalShowInternalData; }
+			set { m_globalShowInternalData = value; }
 		}
 
 		public double EditorTime
@@ -5007,7 +5066,6 @@ namespace AmplifyShaderEditor
 			}
 		}
 		public void InvalidateAlt() { m_altAvailable = false; }
-		public bool LmbPressed { get { return m_lmbPressed; } }
 		public PaletteWindow CurrentPaletteWindow { get { return m_paletteWindow; } }
 		public PreMadeShaders PreMadeShadersInstance { get { return m_preMadeShaders; } }
 		public Rect CameraInfo { get { return m_cameraInfo; } }
@@ -5017,25 +5075,17 @@ namespace AmplifyShaderEditor
 		public DuplicatePreventionBuffer DuplicatePrevBufferInstance { get { return m_duplicatePreventionBuffer; } }
 		public NodeParametersWindow ParametersWindow { get { return m_nodeParametersWindow; } }
 		public NodeExporterUtils CurrentNodeExporterUtils { get { return m_nodeExporterUtils; } }
-		public AmplifyShaderFunction OpenedShaderFunction { get { return m_openedShaderFunction; } set { m_openedShaderFunction = value; } }
+		public AmplifyShaderFunction OpenedShaderFunction { get { return m_openedShaderFunction; }  }
 		public DrawInfo CameraDrawInfo { get { return m_drawInfo; } }
-		public VersionInfo CurrentVersionInfo { get { return m_versionInfo; } }
 		public string Lastpath { get { return m_lastpath; } set { m_lastpath = value; } }
 		public string LastOpenedLocation { get { return m_lastOpenedLocation; } set { m_lastOpenedLocation = value; } }
 		public float AvailableCanvasWidth { get { return ( m_cameraInfo.width - m_paletteWindow.RealWidth - m_nodeParametersWindow.RealWidth ); } }
 		public float AvailableCanvasHeight { get { return ( m_cameraInfo.height ); } }
 		public float CameraZoom { get { return m_cameraZoom; } set { m_cameraZoom = value; m_zoomChanged = true; } }
 		public int GraphCount { get { return m_graphCount; } set { m_graphCount = value; } }
-		public int CurrentVersion { get { return m_versionInfo.FullNumber; } }
 		public bool ForceAutoPanDir { get { return m_forceAutoPanDir; } set { m_forceAutoPanDir = value; } }
 		public bool OpenedAssetFromNode { get { return m_openedAssetFromNode; } set { m_openedAssetFromNode = value; } }
 		public bool IsShaderFunctionWindow { get { return m_isShaderFunctionWindow; } set { m_isShaderFunctionWindow = value; } }
-		public bool ExpandedStencil { get { return m_expandedStencil; } set { m_expandedStencil = value; } }
-		public bool ExpandedTesselation { get { return m_expandedTesselation; } set { m_expandedTesselation = value; } }
-		public bool ExpandedDepth { get { return m_expandedDepth; } set { m_expandedDepth = value; } }
-		public bool ExpandedRenderingPlatforms { get { return m_expandedRenderingPlatforms; } set { m_expandedRenderingPlatforms = value; } }
-		public bool ExpandedRenderingOptions { get { return m_expandedRenderingOptions; } set { m_expandedRenderingOptions = value; } }
-		public bool ExpandedProperties { get { return m_expandedProperties; } set { m_expandedProperties = value; } }
 		public bool NodesLoadedCorrectly { get { return m_nodesLoadedCorrectly; } set { m_nodesLoadedCorrectly = value; } }
 		public double CurrentInactiveTime { get { return m_currentInactiveTime; } }
 		public string ReplaceMasterNodeData { get { return m_replaceMasterNodeData; } }
@@ -5044,8 +5094,9 @@ namespace AmplifyShaderEditor
 		public ContextPalette WindowContextPallete { get { return m_contextPalette; } }
 		// This needs to go to UIUtils
 		public Texture2D WireTexture { get { return m_wireTexture; } }
-		public bool IsLoading { get { return m_isLoading; } }
 		public Event CurrentEvent { get { return m_currentEvent; } }
 		public string CurrentCommandName { get { return m_currentCommandName; } }
+		public InnerWindowEditorVariables InnerWindowVariables { get { return m_innerEditorVariables; } }
+		public TemplatesManager TemplatesManagerInstance { get { return m_templatesManager; } }
 	}
 }

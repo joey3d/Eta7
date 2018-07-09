@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEditor;
 using System.Collections.Generic;
 
 namespace AmplifyShaderEditor
@@ -17,6 +18,7 @@ namespace AmplifyShaderEditor
 	[Serializable] public class UsageListFunctionSwitchNodes : NodeUsageRegister<FunctionSwitch> { }
 	[Serializable] public class UsageListFunctionSwitchCopyNodes : NodeUsageRegister<FunctionSwitch> { }
 	[Serializable] public class UsageListTemplateMultiPassMasterNodes : NodeUsageRegister<TemplateMultiPassMasterNode> { }
+	[Serializable] public class UsageListCustomExpressionsOnFunctionMode : NodeUsageRegister<CustomExpressionNode> { }
 
 	[Serializable]
 	public class NodeUsageRegister<T> where T : ParentNode
@@ -30,6 +32,9 @@ namespace AmplifyShaderEditor
 
 		[SerializeField]
 		private int[] m_nodeIDs;
+
+		[SerializeField]
+		ParentGraph m_containerGraph;
 
 		public NodeUsageRegister()
 		{
@@ -53,8 +58,16 @@ namespace AmplifyShaderEditor
 
 		public int AddNode( T node )
 		{
+			if( node == null )
+				return -1;
+
 			if( !m_nodes.Contains( node ) )
 			{
+				if( m_containerGraph != null )
+				{
+					Undo.RegisterCompleteObjectUndo( m_containerGraph.ParentWindow, Constants.UndoRegisterNodeId );
+					Undo.RegisterCompleteObjectUndo( m_containerGraph, Constants.UndoRegisterNodeId );
+				}
 				m_nodes.Add( node );
 				UpdateNodeArr();
 				return m_nodes.Count - 1;
@@ -76,8 +89,17 @@ namespace AmplifyShaderEditor
 
 		public void RemoveNode( T node )
 		{
+			if( node == null )
+				return;
+
 			if( m_nodes.Contains( node ) )
 			{
+				if( m_containerGraph != null )
+				{
+					Undo.RegisterCompleteObjectUndo( m_containerGraph.ParentWindow, Constants.UndoUnregisterNodeId );
+					Undo.RegisterCompleteObjectUndo( m_containerGraph, Constants.UndoUnregisterNodeId );
+				}
+
 				m_nodes.Remove( node );
 				UpdateNodeArr();
 			}
@@ -150,5 +172,6 @@ namespace AmplifyShaderEditor
 		public int[] NodeIds { get { return m_nodeIDs; } }
 		public List<T> NodesList { get { return m_nodes; } }
 		public int Count { get { return m_nodes.Count; } }
+		public ParentGraph ContainerGraph { get { return m_containerGraph; } set { m_containerGraph = value; } }
 	}
 }

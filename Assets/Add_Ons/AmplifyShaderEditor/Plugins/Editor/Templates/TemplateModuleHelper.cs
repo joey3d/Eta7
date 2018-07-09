@@ -1,9 +1,12 @@
+// Amplify Shader Editor - Visual Shader Editing Tool
+// Copyright (c) Amplify Creations, Lda <info@amplify.pt>
+
 using System;
 using UnityEngine;
 
-
 namespace AmplifyShaderEditor
 {
+
 	[Serializable]
 	public class TemplateModulesHelper
 	{
@@ -43,10 +46,17 @@ namespace AmplifyShaderEditor
 		private TemplateAdditionalPragmasHelper m_additionalPragmas = new TemplateAdditionalPragmasHelper();
 
 		[SerializeField]
+		private TemplateAdditionalDirectivesHelper m_additionalDirectives = new TemplateAdditionalDirectivesHelper(" Additional Directives");
+
+		[SerializeField]
 		private bool m_hasValidData = false;
+
+		[SerializeField]
+		private bool m_allModulesMode = false;
 
 		public void CopyFrom( TemplateModulesHelper other )
 		{
+			m_allModulesMode = other.AllModulesMode;
 
 			if( other.BlendOpHelper.IsDirty )
 			{
@@ -84,130 +94,130 @@ namespace AmplifyShaderEditor
 			}
 		}
 
-		public void FetchDataFromTemplate( TemplateModules module )
+		public void FetchDataFromTemplate( TemplateModulesData module )
 		{
+			m_allModulesMode = module.AllModulesMode;
+
 			if( module.PragmaTag.IsValid )
 			{
-				m_additionalPragmas.MarkAsValid();
-				m_additionalIncludes.MarkAsValid();
-				m_additionalDefines.MarkAsValid();
+				m_hasValidData = true;
+				//m_additionalPragmas.IsValid = true;
+				//m_additionalPragmas.FillNativeItems( module.IncludePragmaContainer.PragmasList );
+
+				//m_additionalIncludes.IsValid = true;
+				//m_additionalIncludes.FillNativeItems( module.IncludePragmaContainer.IncludesList );
+
+				//m_additionalDefines.IsValid = true;
+				//m_additionalDefines.FillNativeItems( module.IncludePragmaContainer.DefinesList );
+
+				m_additionalDirectives.FillNativeItems( module.IncludePragmaContainer.NativeDirectivesList );
+				m_additionalDirectives.IsValid = true;
+			}
+			else
+			{
+				//m_additionalPragmas.IsValid = false;
+				//m_additionalIncludes.IsValid = false;
+				//m_additionalDefines.IsValid = false;
+				m_additionalDirectives.IsValid = false;
 			}
 
+			m_blendOpHelper.ConfigureFromTemplateData( module.BlendData );
 			if( module.BlendData.DataCheck == TemplateDataCheck.Valid )
 			{
-				m_blendOpHelper.ConfigureFromTemplateData( module.BlendData );
 				m_hasValidData = true;
 			}
 
+			m_cullModeHelper.ConfigureFromTemplateData( module.CullModeData );
 			if( module.CullModeData.DataCheck == TemplateDataCheck.Valid )
 			{
-				m_cullModeHelper.ConfigureFromTemplateData( module.CullModeData );
 				m_hasValidData = true;
 			}
 
+			m_colorMaskHelper.ConfigureFromTemplateData( module.ColorMaskData );
 			if( module.ColorMaskData.DataCheck == TemplateDataCheck.Valid )
 			{
-				m_colorMaskHelper.ConfigureFromTemplateData( module.ColorMaskData );
 				m_hasValidData = true;
 			}
 
+			m_stencilBufferHelper.ConfigureFromTemplateData( module.StencilData );
 			if( module.StencilData.DataCheck == TemplateDataCheck.Valid )
 			{
-				m_stencilBufferHelper.ConfigureFromTemplateData( module.StencilData );
 				m_hasValidData = true;
 			}
 
+			m_depthOphelper.ConfigureFromTemplateData( module.DepthData );
 			if( module.DepthData.DataCheck == TemplateDataCheck.Valid )
 			{
-				m_depthOphelper.ConfigureFromTemplateData( module.DepthData );
 				m_hasValidData = true;
 			}
 
+			m_tagsHelper.ConfigureFromTemplateData( module.TagData );
 			if( module.TagData.DataCheck == TemplateDataCheck.Valid )
 			{
-				m_tagsHelper.ConfigureFromTemplateData( module.TagData );
 				m_hasValidData = true;
 			}
 
+			m_shaderModelHelper.ConfigureFromTemplateData( module.ShaderModel );
 			if( module.ShaderModel.DataCheck == TemplateDataCheck.Valid )
 			{
-				m_shaderModelHelper.ConfigureFromTemplateData( module.ShaderModel );
 				m_hasValidData = true;
 			}
 		}
 
-		public void Draw( ParentNode owner, TemplateModules module )
+		public void Draw( ParentNode owner, TemplateModulesData module )
 		{
 
-			switch( module.ShaderModel.DataCheck )
-			{
-				case TemplateDataCheck.Valid: m_shaderModelHelper.Draw( owner ); break;
-				case TemplateDataCheck.Unreadable: m_shaderModelHelper.ShowUnreadableDataMessage(); break;
-			}
+			if( module.ShaderModel.DataCheck == TemplateDataCheck.Valid )
+				m_shaderModelHelper.Draw( owner );
+
 			m_isDirty = m_shaderModelHelper.IsDirty;
 
-			switch( module.CullModeData.DataCheck )
-			{
-				case TemplateDataCheck.Valid: m_cullModeHelper.Draw( owner ); break;
-				case TemplateDataCheck.Unreadable: m_cullModeHelper.ShowUnreadableDataMessage(); break;
-			}
-			m_isDirty = m_cullModeHelper.IsDirty;
+			if( module.CullModeData.DataCheck == TemplateDataCheck.Valid )
+				m_cullModeHelper.Draw( owner );
 
-			switch( module.ColorMaskData.DataCheck )
-			{
-				case TemplateDataCheck.Valid: m_colorMaskHelper.Draw( owner ); break;
-				case TemplateDataCheck.Unreadable: m_colorMaskHelper.ShowUnreadableDataMessage(); break;
-			}
+			m_isDirty = m_isDirty || m_cullModeHelper.IsDirty;
+
+			if( module.ColorMaskData.DataCheck == TemplateDataCheck.Valid )
+				m_colorMaskHelper.Draw( owner );
+
 			m_isDirty = m_isDirty || m_colorMaskHelper.IsDirty;
 
-			switch( module.DepthData.DataCheck )
-			{
-				case TemplateDataCheck.Valid: m_depthOphelper.Draw( owner, false ); break;
-				case TemplateDataCheck.Unreadable: m_depthOphelper.ShowUnreadableDataMessage(); break;
-			}
+			if( module.DepthData.DataCheck == TemplateDataCheck.Valid )
+				m_depthOphelper.Draw( owner, false );
+
 			m_isDirty = m_isDirty || m_depthOphelper.IsDirty;
 
-			switch( module.BlendData.DataCheck )
-			{
-				case TemplateDataCheck.Valid: m_blendOpHelper.Draw( owner, false ); break;
-				case TemplateDataCheck.Unreadable: m_blendOpHelper.ShowUnreadableDataMessage(); break;
-			}
+			if( module.BlendData.DataCheck == TemplateDataCheck.Valid )
+				m_blendOpHelper.Draw( owner, false );
+
 			m_isDirty = m_isDirty || m_blendOpHelper.IsDirty;
 
-			switch( module.StencilData.DataCheck )
+			if( module.StencilData.DataCheck == TemplateDataCheck.Valid )
 			{
-				case TemplateDataCheck.Valid:
-				{
-					CullMode cullMode = ( module.CullModeData.DataCheck == TemplateDataCheck.Valid ) ? m_cullModeHelper.CurrentCullMode : CullMode.Back;
-					m_stencilBufferHelper.Draw( owner, cullMode, false );
-				}
-				break;
-				case TemplateDataCheck.Unreadable:
-				{
-					m_stencilBufferHelper.ShowUnreadableDataMessage();
-				}
-				break;
+				CullMode cullMode = ( module.CullModeData.DataCheck == TemplateDataCheck.Valid ) ? m_cullModeHelper.CurrentCullMode : CullMode.Back;
+				m_stencilBufferHelper.Draw( owner, cullMode, false );
 			}
+
 			m_isDirty = m_isDirty || m_stencilBufferHelper.IsDirty;
 
-			switch( module.TagData.DataCheck )
-			{
-				case TemplateDataCheck.Valid: m_tagsHelper.Draw( owner, false ); break;
-				case TemplateDataCheck.Unreadable: m_tagsHelper.ShowUnreadableDataMessage( owner ); break;
-			}
+			if( module.TagData.DataCheck == TemplateDataCheck.Valid )
+				m_tagsHelper.Draw( owner, false );
+
 			m_isDirty = m_isDirty || m_tagsHelper.IsDirty;
 
 			if( module.PragmaTag.IsValid )
 			{
-				m_additionalDefines.Draw( owner );
-				m_additionalIncludes.Draw( owner );
-				m_additionalPragmas.Draw( owner );
+				//m_additionalDefines.Draw( owner );
+				//m_additionalIncludes.Draw( owner );
+				//m_additionalPragmas.Draw( owner );
+				m_additionalDirectives.Draw( owner , false);
 			}
 
 			m_isDirty = m_isDirty ||
-						m_additionalDefines.IsDirty ||
-						m_additionalIncludes.IsDirty ||
-						m_additionalPragmas.IsDirty;
+						//m_additionalDefines.IsDirty ||
+						//m_additionalIncludes.IsDirty ||
+						//m_additionalPragmas.IsDirty || 
+						m_additionalDirectives.IsDirty;
 		}
 
 		public void Destroy()
@@ -227,6 +237,45 @@ namespace AmplifyShaderEditor
 			m_additionalIncludes = null;
 			m_additionalPragmas.Destroy();
 			m_additionalPragmas = null;
+			m_additionalDirectives.Destroy();
+			m_additionalDirectives = null;
+		}
+
+		public string GenerateAllModulesString( bool isSubShader )
+		{
+			string moduleBody = string.Empty;
+			moduleBody += ShaderModelHelper.GenerateShaderData( isSubShader ) +"\n";
+
+			if( !BlendOpHelper.IndependentModule )
+			{
+				if( BlendOpHelper.BlendModeEnabled )
+					moduleBody += BlendOpHelper.CurrentBlendFactor + "\n";
+
+				if( BlendOpHelper.BlendOpActive )
+					moduleBody += BlendOpHelper.CurrentBlendOp + "\n";
+			}
+
+			if( !CullModeHelper.IndependentModule )
+				moduleBody += CullModeHelper.GenerateShaderData( isSubShader ) + "\n";
+
+			if( !ColorMaskHelper.IndependentModule )
+				moduleBody += ColorMaskHelper.GenerateShaderData( isSubShader ) + "\n";
+
+			if( !DepthOphelper.IndependentModule )
+			{
+				moduleBody += DepthOphelper.CurrentZWriteMode;
+				moduleBody += DepthOphelper.CurrentZTestMode;
+				if( DepthOphelper.OffsetEnabled )
+					moduleBody += DepthOphelper.CurrentOffset;
+			}
+
+			if( !StencilBufferHelper.IndependentModule && StencilBufferHelper.Active )
+			{
+				CullMode cullMode = ( CullModeHelper.ValidData ) ? CullModeHelper.CurrentCullMode : CullMode.Back;
+				moduleBody += StencilBufferHelper.CreateStencilOp( cullMode );
+			}
+
+			return moduleBody;
 		}
 
 		public void ReadFromString( ref uint index, ref string[] nodeParams )
@@ -287,29 +336,50 @@ namespace AmplifyShaderEditor
 			{
 				Debug.LogException( e );
 			}
-			try
+
+
+			if( UIUtils.CurrentShaderVersion() < 15312 )
 			{
-				m_additionalDefines.ReadFromString( ref index, ref nodeParams );
+				try
+				{
+					m_additionalDefines.ReadFromString( ref index, ref nodeParams );
+				}
+				catch( Exception e )
+				{
+					Debug.LogException( e );
+				}
+				try
+				{
+					m_additionalPragmas.ReadFromString( ref index, ref nodeParams );
+				}
+				catch( Exception e )
+				{
+					Debug.LogException( e );
+				}
+				try
+				{
+					m_additionalIncludes.ReadFromString( ref index, ref nodeParams );
+				}
+				catch( Exception e )
+				{
+					Debug.LogException( e );
+				}
+
+				m_additionalDirectives.AddItems( AdditionalLineType.Include, m_additionalIncludes.ItemsList );
+				m_additionalDirectives.AddItems( AdditionalLineType.Define, m_additionalDefines.ItemsList );
+				m_additionalDirectives.AddItems( AdditionalLineType.Pragma, m_additionalPragmas.ItemsList );
+
 			}
-			catch( Exception e )
+			else
 			{
-				Debug.LogException( e );
-			}
-			try
-			{
-				m_additionalPragmas.ReadFromString( ref index, ref nodeParams );
-			}
-			catch( Exception e )
-			{
-				Debug.LogException( e );
-			}
-			try
-			{
-				m_additionalIncludes.ReadFromString( ref index, ref nodeParams );
-			}
-			catch( Exception e )
-			{
-				Debug.LogException( e );
+				try
+				{
+					m_additionalDirectives.ReadFromString( ref index, ref nodeParams );
+				}
+				catch( Exception e )
+				{
+					Debug.LogException( e );
+				}
 			}
 		}
 
@@ -322,9 +392,12 @@ namespace AmplifyShaderEditor
 			m_depthOphelper.WriteToString( ref nodeInfo );
 			m_tagsHelper.WriteToString( ref nodeInfo );
 			m_shaderModelHelper.WriteToString( ref nodeInfo );
-			m_additionalDefines.WriteToString( ref nodeInfo );
-			m_additionalPragmas.WriteToString( ref nodeInfo );
-			m_additionalIncludes.WriteToString( ref nodeInfo );
+
+			//m_additionalDefines.WriteToString( ref nodeInfo );
+			//m_additionalPragmas.WriteToString( ref nodeInfo );
+			//m_additionalIncludes.WriteToString( ref nodeInfo );
+
+			m_additionalDirectives.WriteToString( ref nodeInfo );
 		}
 
 		public TemplatesBlendModule BlendOpHelper { get { return m_blendOpHelper; } }
@@ -334,10 +407,11 @@ namespace AmplifyShaderEditor
 		public TemplateDepthModule DepthOphelper { get { return m_depthOphelper; } }
 		public TemplateTagsModule TagsHelper { get { return m_tagsHelper; } }
 		public TemplateShaderModelModule ShaderModelHelper { get { return m_shaderModelHelper; } }
-		public TemplateAdditionalIncludesHelper AdditionalIncludes { get { return m_additionalIncludes; } }
-		public TemplateAdditionalDefinesHelper AdditionalDefines { get { return m_additionalDefines; } }
-		public TemplateAdditionalPragmasHelper AdditionalPragmas { get { return m_additionalPragmas; } }
-
+		//public TemplateAdditionalIncludesHelper AdditionalIncludes { get { return m_additionalIncludes; } }
+		//public TemplateAdditionalDefinesHelper AdditionalDefines { get { return m_additionalDefines; } }
+		//public TemplateAdditionalPragmasHelper AdditionalPragmas { get { return m_additionalPragmas; } }
+		public TemplateAdditionalDirectivesHelper AdditionalDirectives { get { return m_additionalDirectives; } }
+		public bool AllModulesMode { get { return m_allModulesMode; } }
 		public bool HasValidData { get { return m_hasValidData; } }
 		public bool IsDirty
 		{
@@ -353,9 +427,10 @@ namespace AmplifyShaderEditor
 					m_stencilBufferHelper.IsDirty = false;
 					m_tagsHelper.IsDirty = false;
 					m_shaderModelHelper.IsDirty = false;
-					m_additionalDefines.IsDirty = false;
-					m_additionalPragmas.IsDirty = false;
-					m_additionalIncludes.IsDirty = false;
+					//m_additionalDefines.IsDirty = false;
+					//m_additionalPragmas.IsDirty = false;
+					//m_additionalIncludes.IsDirty = false;
+					m_additionalDirectives.IsDirty = false;
 				}
 			}
 		}

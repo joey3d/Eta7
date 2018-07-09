@@ -1,4 +1,4 @@
-Shader /*ase_name*/ "ASETemplateShaders/Multi Pass/Unlit" /*end*/
+Shader /*ase_name*/ "ASETemplateShaders/Legacy/Multi Pass Unlit" /*end*/
 {
 	Properties
 	{

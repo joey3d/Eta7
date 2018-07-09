@@ -120,12 +120,12 @@ namespace AmplifyShaderEditor
 					if( m_viewSpaceInt == 1 )
 						space = " * _ProjectionParams.w";
 
-					if( m_outputPorts[ 0 ].IsLocalValue )
-						return m_outputPorts[ 0 ].LocalValue;
+					if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+						return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 
 					string value = m_inputPorts[ 0 ].GeneratePortInstructions( ref dataCollector );
 					RegisterLocalVariable( 0, string.Format( "-UnityObjectToViewPos( {0} ).z", value ) + space, ref dataCollector, "customSurfaceDepth" + OutputId );
-					return m_outputPorts[ 0 ].LocalValue;
+					return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 				}
 				else
 				{

@@ -21,6 +21,7 @@ namespace AmplifyShaderEditor
 			base.CommonInit( uniqueId );
 			AddInputPort( WirePortDataType.FLOAT3, false, "Normal" );
 			AddOutputPort( WirePortDataType.FLOAT3, "RGB" );
+			m_inputPorts[ 0 ].Vector3InternalData = Vector3.forward;
 			m_autoWrapProperties = true;
 			m_errorMessageTypeIsError = NodeMessageType.Warning;
 			m_errorMessageTooltip = "This node only returns correct information using a custom light model, otherwise returns 0";
@@ -104,11 +105,16 @@ namespace AmplifyShaderEditor
 				string vOutName = dataCollector.TemplateDataCollectorInstance.CurrentTemplateData.VertexFunctionData.OutVarName;
 				string fInName = dataCollector.TemplateDataCollectorInstance.CurrentTemplateData.FragmentFunctionData.InVarName;
 				TemplateVertexData data = dataCollector.TemplateDataCollectorInstance.RequestNewInterpolator( WirePortDataType.FLOAT4, false, "ase_lmap" );
+
+				string varName = "ase_lmap";
+				if( data != null )
+					varName = data.VarName;
+
 				dataCollector.AddToVertexLocalVariables( UniqueId, "#ifdef DYNAMICLIGHTMAP_ON //dynlm" );
-				dataCollector.AddToVertexLocalVariables( UniqueId, vOutName + "." + data.VarName + ".zw = " + texcoord2 + ".xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;" );
+				dataCollector.AddToVertexLocalVariables( UniqueId, vOutName + "." + varName + ".zw = " + texcoord2 + ".xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;" );
 				dataCollector.AddToVertexLocalVariables( UniqueId, "#endif //dynlm" );
 				dataCollector.AddToVertexLocalVariables( UniqueId, "#ifdef LIGHTMAP_ON //stalm" );
-				dataCollector.AddToVertexLocalVariables( UniqueId, vOutName + "." + data.VarName + ".xy = " + texcoord1 + ".xy * unity_LightmapST.xy + unity_LightmapST.zw;" );
+				dataCollector.AddToVertexLocalVariables( UniqueId, vOutName + "." + varName + ".xy = " + texcoord1 + ".xy * unity_LightmapST.xy + unity_LightmapST.zw;" );
 				dataCollector.AddToVertexLocalVariables( UniqueId, "#endif //stalm" );
 
 				TemplateVertexData shdata = dataCollector.TemplateDataCollectorInstance.RequestNewInterpolator( WirePortDataType.FLOAT3, false, "ase_sh" );
@@ -148,7 +154,7 @@ namespace AmplifyShaderEditor
 				dataCollector.AddLocalVariable( UniqueId, "UNITY_INITIALIZE_OUTPUT( UnityGIInput, data" + OutputId + " );" );
 
 				dataCollector.AddLocalVariable( UniqueId, "#if defined(LIGHTMAP_ON) || defined(DYNAMICLIGHTMAP_ON) //dylm" + OutputId );
-				dataCollector.AddLocalVariable( UniqueId, "data" + OutputId + ".lightmapUV = "+ fInName + "."+ data.VarName + ";" );
+				dataCollector.AddLocalVariable( UniqueId, "data" + OutputId + ".lightmapUV = "+ fInName + "."+ varName + ";" );
 				dataCollector.AddLocalVariable( UniqueId, "#endif //dylm" + OutputId );
 
 				dataCollector.AddLocalVariable( UniqueId, "#if UNITY_SHOULD_SAMPLE_SH //fsh" + OutputId );
@@ -170,7 +176,7 @@ namespace AmplifyShaderEditor
 				dataCollector.AddToInput( UniqueId, SurfaceInputs.INTERNALDATA, addSemiColon: false );
 				dataCollector.ForceNormal = true;
 
-				normal = m_inputPorts[ 0 ].GenerateShaderForOutput( ref dataCollector, WirePortDataType.FLOAT3, ignoreLocalvar );
+				normal = m_inputPorts[ 0 ].GeneratePortInstructions( ref dataCollector );
 				if( m_normalSpace == ViewSpace.Tangent )
 					normal = "WorldNormalVector( " + Constants.InputVarStr + " , " + normal + " )";
 			}

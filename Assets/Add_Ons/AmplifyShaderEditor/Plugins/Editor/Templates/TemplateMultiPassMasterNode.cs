@@ -1,6 +1,6 @@
 // Amplify Shader Editor - Visual Shader Editing Tool
 // Copyright (c) Amplify Creations, Lda <info@amplify.pt>
-#define SHOW_TEMPLATE_HELP_BOX
+//#define SHOW_TEMPLATE_HELP_BOX
 
 using System;
 using System.Collections.Generic;
@@ -13,6 +13,7 @@ namespace AmplifyShaderEditor
 	[NodeAttributes( "Template Master Node", "Master", "Shader Generated according to template rules", null, KeyCode.None, false )]
 	public sealed class TemplateMultiPassMasterNode : MasterNode
 	{
+		private const string SubTitleFormatterStr = "(SubShader {0} Pass {1})";
 		private const string NoSubShaderPropertyStr = "No Sub-Shader properties available";
 		private const string NoPassPropertyStr = "No Pass properties available";
 
@@ -60,7 +61,7 @@ namespace AmplifyShaderEditor
 		//private bool m_mainMPMasterNode = false;
 
 		[NonSerialized]
-		private TemplateMultiPass m_templateMultiPass;
+		private TemplateMultiPass m_templateMultiPass = null;
 
 		[SerializeField]
 		private TemplateModulesHelper m_subShaderModule = new TemplateModulesHelper();
@@ -80,12 +81,22 @@ namespace AmplifyShaderEditor
 		[SerializeField]
 		private bool m_isInvisible = false;
 
+		[SerializeField]
+		private bool m_invalidNode = false;
+
+		[SerializeField]
+		private FallbackPickerHelper m_fallbackHelper = null;
+
+		[SerializeField]
+		private DependenciesHelper m_dependenciesHelper = new DependenciesHelper();
+		
 		protected override void CommonInit( int uniqueId )
 		{
 			base.CommonInit( uniqueId );
 			m_masterNodeCategory = 1;// First Template
 			m_marginPreviewLeft = 20;
 			m_shaderNameIsTitle = false;
+			m_customInspectorName = string.Empty;
 		}
 
 		public override void ReleaseResources()
@@ -93,21 +104,27 @@ namespace AmplifyShaderEditor
 			if( !m_isMainOutputNode )
 				return;
 
-			if( m_templateMultiPass != null && m_templateMultiPass.AvailableShaderProperties != null )
+			m_containerGraph.ClearInternalTemplateNodes();
+			TemplateMultiPass template = ( m_templateMultiPass == null ) ? m_containerGraph.ParentWindow.TemplatesManagerInstance.GetTemplate( m_templateGUID ) as TemplateMultiPass : m_templateMultiPass;
+
+			if( template != null && template.AvailableShaderProperties != null )
 			{
 				// Unregister old template properties
-				int oldPropertyCount = m_templateMultiPass.AvailableShaderProperties.Count;
+				int oldPropertyCount = template.AvailableShaderProperties.Count;
 				for( int i = 0; i < oldPropertyCount; i++ )
 				{
-					UIUtils.ReleaseUniformName( UniqueId, m_templateMultiPass.AvailableShaderProperties[ i ].PropertyName );
+					UIUtils.ReleaseUniformName( UniqueId, template.AvailableShaderProperties[ i ].PropertyName );
 				}
 			}
 		}
-
+		
 		void RegisterProperties()
 		{
-			if( !m_isMainOutputNode )
+			if ( !m_isMainOutputNode )
+			{
+				m_reRegisterTemplateData = false;
 				return;
+			}
 
 			if( m_templateMultiPass != null )
 			{
@@ -116,17 +133,21 @@ namespace AmplifyShaderEditor
 				int newPropertyCount = m_templateMultiPass.AvailableShaderProperties.Count;
 				for( int i = 0; i < newPropertyCount; i++ )
 				{
+					m_containerGraph.AddInternalTemplateNode( m_templateMultiPass.AvailableShaderProperties[ i ] );
 					int nodeId = UIUtils.CheckUniformNameOwner( m_templateMultiPass.AvailableShaderProperties[ i ].PropertyName );
 					if( nodeId > -1 )
 					{
-						ParentNode node = m_containerGraph.GetNode( nodeId );
-						if( node != null )
+						if( UniqueId != nodeId )
 						{
-							UIUtils.ShowMessage( string.Format( "Template requires property name {0} which is currently being used by {1}. Please rename it and reload template.", m_templateMultiPass.AvailableShaderProperties[ i ].PropertyName, node.Attributes.Name ) );
-						}
-						else
-						{
-							UIUtils.ShowMessage( string.Format( "Template requires property name {0} which is currently being on your graph. Please rename it and reload template.", m_templateMultiPass.AvailableShaderProperties[ i ].PropertyName ) );
+							ParentNode node = m_containerGraph.GetNode( nodeId );
+							if( node != null )
+							{
+								UIUtils.ShowMessage( string.Format( "Template requires property name {0} which is currently being used by {1}. Please rename it and reload template.", m_templateMultiPass.AvailableShaderProperties[ i ].PropertyName, node.Attributes.Name ) );
+							}
+							else
+							{
+								UIUtils.ShowMessage( string.Format( "Template requires property name {0} which is currently being on your graph. Please rename it and reload template.", m_templateMultiPass.AvailableShaderProperties[ i ].PropertyName ) );
+							}
 						}
 					}
 					else
@@ -141,6 +162,8 @@ namespace AmplifyShaderEditor
 		{
 			base.OnEnable();
 			m_reRegisterTemplateData = true;
+			if( m_fallbackHelper == null )
+				m_fallbackHelper = ScriptableObject.CreateInstance<FallbackPickerHelper>();
 		}
 
 		protected override void OnUniqueIDAssigned()
@@ -160,22 +183,29 @@ namespace AmplifyShaderEditor
 			if( passIdx > -1 )
 				m_passIdx = passIdx;
 
-			
 			ReleaseResources();
-			m_templateMultiPass = ( template == null ) ? TemplatesManager.GetTemplate( m_templateGUID ) as TemplateMultiPass : template;
+			m_templateMultiPass = ( template == null ) ? m_containerGraph.ParentWindow.TemplatesManagerInstance.GetTemplate( m_templateGUID ) as TemplateMultiPass : template;
 			if( m_templateMultiPass != null )
 			{
-				
+				if( m_templateMultiPass.IsSinglePass )
+				{
+					SetAdditonalTitleText( string.Empty );
+				}
+				else
+				{
+					SetAdditonalTitleText(string.Format( SubTitleFormatterStr, m_subShaderIdx, m_passIdx ));
+				}
+				m_invalidNode = false;
 				if( m_subShaderIdx >= m_templateMultiPass.SubShaders.Count ||
 					m_passIdx >= m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes.Count )
 				{
 					if( DebugConsoleWindow.DeveloperMode )
-						Debug.LogFormat( "Inexisting pass {0}. Cancelling template fetch",m_originalPassName);
+						Debug.LogFormat( "Inexisting pass {0}. Cancelling template fetch", m_originalPassName );
 
 					return;
 				}
 
-				m_isMainOutputNode = m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[m_passIdx].IsMainPass;
+				m_isMainOutputNode = m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].IsMainPass;
 				if( m_isMainOutputNode )
 				{
 					// We cannot use UIUtils.MasterNodeOnTexture.height since this method can be 
@@ -186,7 +216,7 @@ namespace AmplifyShaderEditor
 				{
 					m_insideSize.y = 0;
 				}
-
+				
 				//IsMainOutputNode = m_mainMPMasterNode;
 				m_isInvisible = m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].IsInvisible;
 
@@ -203,9 +233,18 @@ namespace AmplifyShaderEditor
 				{
 					m_subShaderLOD = -1;
 				}
+				
 				m_fetchMasterNodeCategory = fetchMasterNodeCategory;
 				m_templateGUID = m_templateMultiPass.GUID;
 				UpdatePortInfo();
+				RegisterProperties();
+
+				if( string.IsNullOrEmpty( m_customInspectorName ))
+					m_customInspectorName = m_templateMultiPass.CustomInspectorContainer.Data;
+
+				if( string.IsNullOrEmpty( m_fallbackHelper.RawFallbackShader))
+					m_fallbackHelper.RawFallbackShader = m_templateMultiPass.FallbackContainer.Data;
+
 				//bool updateInfofromTemplate = UpdatePortInfo();
 				//if( updateInfofromTemplate )
 				//{
@@ -213,7 +252,8 @@ namespace AmplifyShaderEditor
 				m_passModule.FetchDataFromTemplate( m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules );
 				//}
 
-				RegisterProperties();
+
+				//RegisterProperties();
 				if( writeDefaultData )
 				{
 					ShaderName = m_templateMultiPass.DefaultShaderName;
@@ -228,6 +268,10 @@ namespace AmplifyShaderEditor
 
 				if( m_isMainOutputNode )
 					m_fireTemplateChange = true;
+			}
+			else
+			{
+				m_invalidNode = true;
 			}
 		}
 
@@ -260,11 +304,11 @@ namespace AmplifyShaderEditor
 
 		void SetCategoryIdxFromTemplate()
 		{
-			int templateCount = TemplatesManager.TemplateCount;
+			int templateCount = m_containerGraph.ParentWindow.TemplatesManagerInstance.TemplateCount;
 			for( int i = 0; i < templateCount; i++ )
 			{
 				int idx = i + 1;
-				TemplateMultiPass templateData = TemplatesManager.GetTemplate( i ) as TemplateMultiPass;
+				TemplateMultiPass templateData = m_containerGraph.ParentWindow.TemplatesManagerInstance.GetTemplate( i ) as TemplateMultiPass;
 				if( templateData != null && m_templateMultiPass != null && m_templateMultiPass.GUID.Equals( templateData.GUID ) )
 					m_masterNodeCategory = idx;
 			}
@@ -272,6 +316,9 @@ namespace AmplifyShaderEditor
 
 		void CheckTemplateChanges()
 		{
+			if( m_invalidNode )
+				return;
+
 			if( m_isMainOutputNode )
 			{
 				if( m_containerGraph.MultiPassMasterNodes.Count != m_templateMultiPass.MasterNodesRequired )
@@ -286,10 +333,14 @@ namespace AmplifyShaderEditor
 				}
 			}
 		}
-			
+
 		public override void OnNodeLogicUpdate( DrawInfo drawInfo )
 		{
 			base.OnNodeLogicUpdate( drawInfo );
+			if( m_invalidNode )
+			{
+				return;
+			}
 
 			if( m_templateMultiPass == null )
 			{
@@ -297,7 +348,12 @@ namespace AmplifyShaderEditor
 				SetTemplate( null, false, true, m_subShaderIdx, m_passIdx );
 				CheckTemplateChanges();
 			}
-
+			
+			//Debug.Log( "Count " + m_templateMultiPass.SubShaders.Count );
+			//if( m_templateMultiPass.SubShaders.Count >0  )
+			//{
+			//	Debug.Log( "Count " + m_templateMultiPass.SubShaders[0] );
+			//}
 			if( m_reRegisterTemplateData )
 			{
 				RegisterProperties();
@@ -327,9 +383,21 @@ namespace AmplifyShaderEditor
 				base.Draw( drawInfo );
 			}
 		}
-
+		
 		public override void OnNodeLayout( DrawInfo drawInfo )
 		{
+			if( m_invalidNode )
+			{
+				if( m_isMainOutputNode )
+				{
+					UIUtils.ShowMessage( "Invalid current template. Switching to Standard Surface", MessageSeverity.Error );
+					m_shaderModelIdx = 0;
+					m_masterNodeCategory = 0;
+					m_containerGraph.ParentWindow.ReplaceMasterNode( new MasterNodeCategoriesData( AvailableShaderTypes.SurfaceShader, m_shaderName ), false );
+				}
+				return;
+			}
+
 			if( m_isInvisible )
 			{
 				return;
@@ -382,6 +450,8 @@ namespace AmplifyShaderEditor
 		public override void OnNodeRepaint( DrawInfo drawInfo )
 		{
 			base.OnNodeRepaint( drawInfo );
+			if( m_invalidNode )
+				return;
 
 			if( !m_isInvisible )
 			{
@@ -433,6 +503,9 @@ namespace AmplifyShaderEditor
 		public override void DrawProperties()
 		{
 			base.DrawProperties();
+			if( m_invalidNode )
+				return;
+
 			NodeUtils.DrawPropertyGroup( ref m_propertiesFoldout, CommonPropertiesStr, DrawCommonProperties );
 			NodeUtils.DrawPropertyGroup( ref m_subStringFoldout, SubShaderModuleStr, DrawSubShaderProperties );
 			NodeUtils.DrawPropertyGroup( ref m_passFoldout, PassModuleStr, DrawPassProperties );
@@ -467,6 +540,9 @@ namespace AmplifyShaderEditor
 				DrawPrecisionProperty();
 				if( EditorGUI.EndChangeCheck() )
 					ContainerGraph.CurrentPrecision = m_currentPrecisionType;
+				m_fallbackHelper.Draw( this );
+				DrawCustomInspector();
+				m_dependenciesHelper.Draw( this , true );
 			}
 			EditorGUILayout.LabelField( m_subShaderIdxStr );
 			EditorGUILayout.LabelField( m_passIdxStr );
@@ -498,10 +574,10 @@ namespace AmplifyShaderEditor
 							mpNodes[ i ].SubShaderModule.CopyFrom( m_subShaderModule );
 						}
 					}
+					m_subShaderModule.IsDirty = false;
 				}
 			}
-
-
+			
 			if( noValidData )
 			{
 				EditorGUILayout.HelpBox( NoSubShaderPropertyStr, MessageType.Info );
@@ -538,7 +614,7 @@ namespace AmplifyShaderEditor
 				return true;
 
 			bool isValid = true;
-			UIUtils.CurrentWindow.CurrentGraph.ResetNodesLocalVariables();
+			//UIUtils.CurrentWindow.CurrentGraph.ResetNodesLocalVariables();
 			for( int i = 0; i < ports.Count; i++ )
 			{
 				TemplateInputData inputData = templateData.InputDataFromId( ports[ i ].PortId );
@@ -550,7 +626,18 @@ namespace AmplifyShaderEditor
 						{
 							m_currentDataCollector.AddToDefines( UniqueId, "_NORMALMAP 1" );
 						}
+
+						if( ports[ i ].Name.Contains( "Alpha Clip Threshold" ) )
+						{
+							m_currentDataCollector.AddToDefines( UniqueId, "_AlphaClip 1" );
+						}
+
+						if( ports[ i ].Name.Contains( "Specular" ) )
+						{
+							m_currentDataCollector.AddToDefines( UniqueId, "_SPECULAR_SETUP 1" );
+						}
 					}
+
 					m_currentDataCollector.ResetInstructions();
 					m_currentDataCollector.ResetVertexInstructions();
 
@@ -593,12 +680,23 @@ namespace AmplifyShaderEditor
 			}
 			return isValid;
 		}
-
-
+		
 		public string BuildShaderBody()
 		{
 			List<TemplateMultiPassMasterNode> list = UIUtils.CurrentWindow.CurrentGraph.MultiPassMasterNodes.NodesList;
 			int currentSubshader = list[ 0 ].SubShaderIdx;
+			m_templateMultiPass.SetShaderName( string.Format( TemplatesManager.NameFormatter, m_shaderName ) );
+			if( string.IsNullOrEmpty( m_customInspectorName ) )
+			{
+				m_templateMultiPass.SetCustomInspector( string.Empty );
+			}
+			else
+			{
+				m_templateMultiPass.SetCustomInspector( CustomInspectorFormatted );
+			}
+
+			m_templateMultiPass.SetFallback( m_fallbackHelper.FallbackShader );
+			m_templateMultiPass.SetDependencies( m_dependenciesHelper.GenerateDependencies() );
 
 			MasterNodeDataCollector dataCollector = new MasterNodeDataCollector();
 			int count = list.Count;
@@ -632,7 +730,7 @@ namespace AmplifyShaderEditor
 
 		public override Shader Execute( string pathname, bool isFullPath )
 		{
-			m_templateMultiPass.Reset();
+			m_templateMultiPass.ResetState();
 			ForceReordering();
 			base.Execute( pathname, isFullPath );
 			string shaderBody = BuildShaderBody();
@@ -647,19 +745,40 @@ namespace AmplifyShaderEditor
 
 			ContainerGraph.ResetNodesLocalVariables();
 			m_currentDataCollector = new MasterNodeDataCollector( this );
+			
 			m_currentDataCollector.TemplateDataCollectorInstance.SetMultipassInfo( m_subShaderIdx, m_passIdx, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Modules.SRPType );
 			m_currentDataCollector.TemplateDataCollectorInstance.FillSpecialVariables( m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ] );
 			SetupNodeCategories();
+			if( m_containerGraph.IsInstancedShader )
+				m_currentDataCollector.SetupInstancePropertiesBlock( UIUtils.RemoveInvalidCharacters( m_shaderName ) );
 
 			TemplateData templateData = m_templateMultiPass.CreateTemplateData( m_shaderName, string.Empty, m_subShaderIdx, m_passIdx );
 			m_currentDataCollector.TemplateDataCollectorInstance.BuildFromTemplateData( m_currentDataCollector, templateData );
+
+			if( m_currentDataCollector.TemplateDataCollectorInstance.InterpData.DynamicMax )
+			{
+				int interpolatorAmount = -1;
+				if( m_passModule.ShaderModelHelper.ValidData )
+				{
+					interpolatorAmount = m_passModule.ShaderModelHelper.InterpolatorAmount;
+				}
+				else if( m_subShaderModule.ShaderModelHelper.ValidData )
+				{
+					interpolatorAmount = m_subShaderModule.ShaderModelHelper.InterpolatorAmount;
+				}
+
+				if( interpolatorAmount > -1 )
+				{
+					m_currentDataCollector.TemplateDataCollectorInstance.InterpData.RecalculateAvailableInterpolators( interpolatorAmount );
+				}
+			}
 
 			//Copy Properties
 			{
 				int shaderPropertiesAmount = m_templateMultiPass.AvailableShaderProperties.Count;
 				for( int i = 0; i < shaderPropertiesAmount; i++ )
 				{
-					m_currentDataCollector.SoftRegisterUniform( m_templateMultiPass.AvailableShaderProperties[ i ].PropertyName );
+					m_currentDataCollector.SoftRegisterUniform( m_templateMultiPass.AvailableShaderProperties[ i ] );
 				}
 			}
 			//Copy Globals from SubShader level
@@ -667,7 +786,7 @@ namespace AmplifyShaderEditor
 				int subShaderGlobalAmount = m_templateMultiPass.SubShaders[ m_subShaderIdx ].AvailableShaderGlobals.Count;
 				for( int i = 0; i < subShaderGlobalAmount; i++ )
 				{
-					m_currentDataCollector.SoftRegisterUniform( m_templateMultiPass.SubShaders[ m_subShaderIdx ].AvailableShaderGlobals[ i ].PropertyName );
+					m_currentDataCollector.SoftRegisterUniform( m_templateMultiPass.SubShaders[ m_subShaderIdx ].AvailableShaderGlobals[ i ] );
 				}
 			}
 			//Copy Globals from Pass Level
@@ -675,11 +794,11 @@ namespace AmplifyShaderEditor
 				int passGlobalAmount = m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].AvailableShaderGlobals.Count;
 				for( int i = 0; i < passGlobalAmount; i++ )
 				{
-					m_currentDataCollector.SoftRegisterUniform( m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].AvailableShaderGlobals[ i ].PropertyName );
+					m_currentDataCollector.SoftRegisterUniform( m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].AvailableShaderGlobals[ i ] );
 				}
 			}
 
-
+			RegisterStandaloneFuntions();
 			m_containerGraph.CheckPropertiesAutoRegister( ref m_currentDataCollector );
 
 			//Sort ports by both 
@@ -696,9 +815,11 @@ namespace AmplifyShaderEditor
 
 			bool validBody = true;
 
-			validBody = CreateInstructionsForList( templateData, ref fragmentPorts, ref shaderBody, ref vertexInstructions, ref fragmentInstructions ) && validBody;
-			ContainerGraph.ResetNodesLocalVariablesIfNot( MasterNodePortCategory.Vertex );
+			//validBody = CreateInstructionsForList( templateData, ref fragmentPorts, ref shaderBody, ref vertexInstructions, ref fragmentInstructions ) && validBody;
+			//ContainerGraph.ResetNodesLocalVariablesIfNot( MasterNodePortCategory.Vertex );
+			//validBody = CreateInstructionsForList( templateData, ref vertexPorts, ref shaderBody, ref vertexInstructions, ref fragmentInstructions ) && validBody;
 			validBody = CreateInstructionsForList( templateData, ref vertexPorts, ref shaderBody, ref vertexInstructions, ref fragmentInstructions ) && validBody;
+			validBody = CreateInstructionsForList( templateData, ref fragmentPorts, ref shaderBody, ref vertexInstructions, ref fragmentInstructions ) && validBody;
 
 			templateData.ResetTemplateUsageData();
 
@@ -723,9 +844,14 @@ namespace AmplifyShaderEditor
 			// Add Instanced Properties
 			if( m_containerGraph.IsInstancedShader )
 			{
+				m_currentDataCollector.OptimizeInstancedProperties();
 				m_currentDataCollector.TabifyInstancedVars();
-				m_currentDataCollector.InstancedPropertiesList.Insert( 0, new PropertyDataCollector( -1, string.Format( IOUtils.InstancedPropertiesBegin, UIUtils.RemoveInvalidCharacters( m_shaderName ) ) ) );
-				m_currentDataCollector.InstancedPropertiesList.Add( new PropertyDataCollector( -1, IOUtils.InstancedPropertiesEnd ) );
+				
+				string cbufferBegin = string.Format( (m_currentDataCollector.IsLightweight ? IOUtils.LWSRPInstancedPropertiesBegin : IOUtils.InstancedPropertiesBegin), m_currentDataCollector.InstanceBlockName );
+				string cBufferEnd = m_currentDataCollector.IsLightweight ? ( string.Format( IOUtils.LWSRPInstancedPropertiesEnd, m_currentDataCollector.InstanceBlockName ) ) : IOUtils.InstancedPropertiesEnd;
+
+				m_currentDataCollector.InstancedPropertiesList.Insert( 0, new PropertyDataCollector( -1, cbufferBegin ) );
+				m_currentDataCollector.InstancedPropertiesList.Add( new PropertyDataCollector( -1, cBufferEnd ) );
 				m_currentDataCollector.UniformsList.AddRange( m_currentDataCollector.InstancedPropertiesList );
 			}
 
@@ -737,7 +863,7 @@ namespace AmplifyShaderEditor
 		{
 			MasterNodeDataCollector currDataCollector = ( dataCollector == null ) ? m_currentDataCollector : dataCollector;
 			// SubShader Data
-			m_templateMultiPass.SetShaderName( string.Format( TemplatesManager.NameFormatter, m_shaderName ) );
+			
 			m_templateMultiPass.SetPropertyData( currDataCollector.BuildUnformatedPropertiesStringArr() );
 			m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModulePass, m_subShaderIdx, currDataCollector.GrabPassList );
 			SetModuleData( m_subShaderModule, true );
@@ -745,6 +871,22 @@ namespace AmplifyShaderEditor
 
 		public void FillPassData()
 		{
+			if( m_isInvisible )
+			{
+				int inputCount = m_inputPorts.Count;
+				for( int i = 0; i < inputCount; i++ )
+				{
+					if( m_inputPorts[ i ].HasExternalLink )
+					{
+						TemplateMultiPassMasterNode linkedNode = m_inputPorts[ i ].ExternalLinkNode as TemplateMultiPassMasterNode;
+						if( linkedNode != null )
+						{
+							SetLinkedModuleData( linkedNode.PassModule );
+						}
+					}
+				}
+			}
+
 			SetModuleData( m_passModule, false );
 			if( m_currentDataCollector != null )
 			{
@@ -755,6 +897,7 @@ namespace AmplifyShaderEditor
 				includePragmaDefineList.AddRange( m_currentDataCollector.IncludesList );
 				includePragmaDefineList.AddRange( m_currentDataCollector.DefinesList );
 				includePragmaDefineList.AddRange( m_currentDataCollector.PragmasList );
+				includePragmaDefineList.AddRange( m_currentDataCollector.MiscList );
 
 				m_templateMultiPass.SetPassData( TemplateModuleDataType.ModulePragma, m_subShaderIdx, m_passIdx, includePragmaDefineList );
 				m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleGlobals, m_subShaderIdx, m_passIdx, m_currentDataCollector.UniformsList );
@@ -764,28 +907,52 @@ namespace AmplifyShaderEditor
 			m_templateMultiPass.SetPassData( TemplateModuleDataType.PassNameData, m_subShaderIdx, m_passIdx, string.Format( PassNameFormateStr, m_passName ) );
 		}
 
+		void SetLinkedModuleData( TemplateModulesHelper linkedModule )
+		{
+				//if(	linkedModule.AdditionalPragmas.ValidData )
+				//{
+				//	linkedModule.AdditionalPragmas.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules.IncludePragmaContainer );
+				//}
+
+				//if( linkedModule.AdditionalIncludes.ValidData )
+				//{
+				//	linkedModule.AdditionalIncludes.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules.IncludePragmaContainer );
+				//}
+
+				//if( linkedModule.AdditionalDefines.ValidData )
+				//{
+				//	linkedModule.AdditionalDefines.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules.IncludePragmaContainer );
+				//}
+
+				if( linkedModule.AdditionalDirectives.ValidData )
+				{
+					linkedModule.AdditionalDirectives.AddAllToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules.IncludePragmaContainer );
+				}
+		}
+
 		void SetModuleData( TemplateModulesHelper module, bool isSubShader )
 		{
-			if( module.AdditionalPragmas.ValidData )
-			{
-				module.AdditionalPragmas.AddToDataCollector( ref m_currentDataCollector );
-			}
-
-			if( module.AdditionalIncludes.ValidData )
-			{
-				module.AdditionalIncludes.AddToDataCollector( ref m_currentDataCollector );
-			}
-
-			if( module.AdditionalDefines.ValidData )
-			{
-				module.AdditionalDefines.AddToDataCollector( ref m_currentDataCollector );
-			}
-
 			if( isSubShader )
 			{
-				if( module.ShaderModelHelper.ValidData )
+
+				//if ( module.AdditionalPragmas.ValidData )
+				//{
+				//	module.AdditionalPragmas.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Modules.IncludePragmaContainer );
+				//}
+
+				//if ( module.AdditionalIncludes.ValidData )
+				//{
+				//	module.AdditionalIncludes.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Modules.IncludePragmaContainer );
+				//}
+
+				//if ( module.AdditionalDefines.ValidData )
+				//{
+				//	module.AdditionalDefines.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Modules.IncludePragmaContainer );
+				//}
+
+				if( module.AdditionalDirectives.ValidData )
 				{
-					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleShaderModel, m_subShaderIdx, module.ShaderModelHelper.GenerateShaderData() );
+					module.AdditionalDirectives.AddAllToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Modules.IncludePragmaContainer );
 				}
 
 				if( module.TagsHelper.ValidData )
@@ -793,96 +960,134 @@ namespace AmplifyShaderEditor
 					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleTag, m_subShaderIdx, module.TagsHelper.GenerateTags() );
 				}
 
-				if( module.BlendOpHelper.ValidBlendMode )
+				if( module.AllModulesMode )
+				{
+					string body = module.GenerateAllModulesString( isSubShader );
+					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.AllModules, m_subShaderIdx, body.Split('\n') );
+				}
+				
+				if( module.ShaderModelHelper.ValidAndIndependent )
+				{
+					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleShaderModel, m_subShaderIdx, module.ShaderModelHelper.GenerateShaderData( isSubShader ) );
+				}
+
+				if( module.BlendOpHelper.IndependentModule && module.BlendOpHelper.ValidBlendMode )
 				{
 					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleBlendMode, m_subShaderIdx, module.BlendOpHelper.CurrentBlendFactor );
 				}
 
-				if( module.BlendOpHelper.ValidBlendOp )
+				if( module.BlendOpHelper.IndependentModule && module.BlendOpHelper.ValidBlendOp )
 				{
 					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleBlendOp, m_subShaderIdx, module.BlendOpHelper.CurrentBlendOp );
 				}
 
-				if( module.CullModeHelper.ValidData )
+				if( module.CullModeHelper.ValidAndIndependent )
 				{
-					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleCullMode, m_subShaderIdx, module.CullModeHelper.GenerateShaderData() );
+					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleCullMode, m_subShaderIdx, module.CullModeHelper.GenerateShaderData( isSubShader ) );
 				}
 
-				if( module.ColorMaskHelper.ValidData )
+				if( module.ColorMaskHelper.ValidAndIndependent )
 				{
-					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleColorMask, m_subShaderIdx, module.ColorMaskHelper.GenerateShaderData() );
+					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleColorMask, m_subShaderIdx, module.ColorMaskHelper.GenerateShaderData( isSubShader ) );
 				}
 
-				if( module.DepthOphelper.ValidZTest )
+				if( module.DepthOphelper.IndependentModule && module.DepthOphelper.ValidZTest )
 				{
 					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleZTest, m_subShaderIdx, module.DepthOphelper.CurrentZTestMode );
 				}
 
-				if( module.DepthOphelper.ValidZWrite )
+				if( module.DepthOphelper.IndependentModule && module.DepthOphelper.ValidZWrite )
 				{
 					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleZwrite, m_subShaderIdx, module.DepthOphelper.CurrentZWriteMode );
 				}
 
-				if( module.DepthOphelper.ValidOffset )
+				if( module.DepthOphelper.IndependentModule && module.DepthOphelper.ValidOffset )
 				{
 					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleZOffset, m_subShaderIdx, module.DepthOphelper.CurrentOffset );
 				}
 
-				if( module.StencilBufferHelper.ValidData )
+				if( module.StencilBufferHelper.ValidAndIndependent )
 				{
 					CullMode cullMode = ( module.CullModeHelper.ValidData ) ? module.CullModeHelper.CurrentCullMode : CullMode.Back;
 					string value = module.StencilBufferHelper.CreateStencilOp( cullMode );
 					m_templateMultiPass.SetSubShaderData( TemplateModuleDataType.ModuleStencil, m_subShaderIdx, value.Split( '\n' ) );
 				}
+				
 			}
 			else
 			{
-				if( module.ShaderModelHelper.ValidData )
-				{
-					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleShaderModel, m_subShaderIdx, m_passIdx, module.ShaderModelHelper.GenerateShaderData() );
-				}
+				//if ( module.AdditionalPragmas.ValidData )
+				//{
+				//	module.AdditionalPragmas.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules.IncludePragmaContainer );
+				//}
 
+				//if ( module.AdditionalIncludes.ValidData )
+				//{
+				//	module.AdditionalIncludes.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules.IncludePragmaContainer );
+				//}
+
+				//if ( module.AdditionalDefines.ValidData )
+				//{
+				//	module.AdditionalDefines.AddToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules.IncludePragmaContainer );
+				//}
+
+				if( module.AdditionalDirectives.ValidData )
+				{
+					module.AdditionalDirectives.AddAllToDataCollector( ref m_currentDataCollector, m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].Modules.IncludePragmaContainer );
+				}
+				
 				if( module.TagsHelper.ValidData )
 				{
 					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleTag, m_subShaderIdx, m_passIdx, module.TagsHelper.GenerateTags() );
 				}
 
-				if( module.BlendOpHelper.ValidBlendMode )
+				if( module.AllModulesMode )
+				{
+					string body = module.GenerateAllModulesString( isSubShader );
+					m_templateMultiPass.SetPassData( TemplateModuleDataType.AllModules, m_subShaderIdx,m_passIdx, body.Split( '\n' ) );
+				}
+				
+				if( module.ShaderModelHelper.ValidAndIndependent )
+				{
+					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleShaderModel, m_subShaderIdx, m_passIdx, module.ShaderModelHelper.GenerateShaderData( isSubShader ) );
+				}
+
+				if( module.BlendOpHelper.IndependentModule && module.BlendOpHelper.ValidBlendMode )
 				{
 					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleBlendMode, m_subShaderIdx, m_passIdx, module.BlendOpHelper.CurrentBlendFactor );
 				}
 
-				if( module.BlendOpHelper.ValidBlendOp )
+				if( module.BlendOpHelper.IndependentModule && module.BlendOpHelper.ValidBlendOp )
 				{
 					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleBlendOp, m_subShaderIdx, m_passIdx, module.BlendOpHelper.CurrentBlendOp );
 				}
 
-				if( module.CullModeHelper.ValidData )
+				if( module.CullModeHelper.ValidAndIndependent )
 				{
-					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleCullMode, m_subShaderIdx, m_passIdx, module.CullModeHelper.GenerateShaderData() );
+					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleCullMode, m_subShaderIdx, m_passIdx, module.CullModeHelper.GenerateShaderData( isSubShader ) );
 				}
 
-				if( module.ColorMaskHelper.ValidData )
+				if( module.ColorMaskHelper.ValidAndIndependent )
 				{
-					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleColorMask, m_subShaderIdx, m_passIdx, module.ColorMaskHelper.GenerateShaderData() );
+					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleColorMask, m_subShaderIdx, m_passIdx, module.ColorMaskHelper.GenerateShaderData( isSubShader ) );
 				}
 
-				if( module.DepthOphelper.ValidZTest )
+				if( module.DepthOphelper.IndependentModule && module.DepthOphelper.ValidZTest )
 				{
 					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleZTest, m_subShaderIdx, m_passIdx, module.DepthOphelper.CurrentZTestMode );
 				}
 
-				if( module.DepthOphelper.ValidZWrite )
+				if( module.DepthOphelper.IndependentModule && module.DepthOphelper.ValidZWrite )
 				{
 					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleZwrite, m_subShaderIdx, m_passIdx, module.DepthOphelper.CurrentZWriteMode );
 				}
 
-				if( module.DepthOphelper.ValidOffset )
+				if( module.DepthOphelper.IndependentModule && module.DepthOphelper.ValidOffset )
 				{
 					m_templateMultiPass.SetPassData( TemplateModuleDataType.ModuleZOffset, m_subShaderIdx, m_passIdx, module.DepthOphelper.CurrentOffset );
 				}
 
-				if( module.StencilBufferHelper.ValidData )
+				if( module.StencilBufferHelper.ValidAndIndependent )
 				{
 					CullMode cullMode = ( module.CullModeHelper.ValidData ) ? module.CullModeHelper.CurrentCullMode : CullMode.Back;
 					string value = module.StencilBufferHelper.CreateStencilOp( cullMode );
@@ -899,6 +1104,13 @@ namespace AmplifyShaderEditor
 		public override void Destroy()
 		{
 			base.Destroy();
+			m_fallbackHelper.Destroy();
+			GameObject.DestroyImmediate( m_fallbackHelper );
+			m_fallbackHelper = null;
+
+			m_dependenciesHelper.Destroy();
+			m_dependenciesHelper = null;
+
 			m_subShaderModule.Destroy();
 			m_subShaderModule = null;
 			m_passModule.Destroy();
@@ -908,8 +1120,8 @@ namespace AmplifyShaderEditor
 
 		void UpdateSubShaderPassStr()
 		{
-			m_subShaderIdxStr = SubShaderModuleStr + m_subShaderIdx;
-			m_passIdxStr = PassModuleStr + m_passIdx;
+			m_subShaderIdxStr = SubShaderModuleStr + m_templateMultiPass.SubShaders[ m_subShaderIdx].Idx;
+			m_passIdxStr = PassModuleStr + m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[m_passIdx].Idx;
 		}
 
 		public override void ReadFromString( ref string[] nodeParams )
@@ -932,7 +1144,13 @@ namespace AmplifyShaderEditor
 				m_visiblePorts = Convert.ToInt32( GetCurrentParam( ref nodeParams ) );
 				m_subShaderModule.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
 				m_passModule.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
-				if( !m_templateMultiPass.IsSinglePass )
+				if( UIUtils.CurrentShaderVersion() > 15308 )
+				{
+					m_fallbackHelper.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
+					m_dependenciesHelper.ReadFromString( ref m_currentReadParamIdx, ref nodeParams );
+				}
+
+				if( m_templateMultiPass!= null && !m_templateMultiPass.IsSinglePass )
 				{
 					SetClippedTitle( m_passName );
 				}
@@ -956,6 +1174,8 @@ namespace AmplifyShaderEditor
 			IOUtils.AddFieldValueToString( ref nodeInfo, m_visiblePorts );
 			m_subShaderModule.WriteToString( ref nodeInfo );
 			m_passModule.WriteToString( ref nodeInfo );
+			m_fallbackHelper.WriteToString( ref nodeInfo );
+			m_dependenciesHelper.WriteToString( ref nodeInfo );
 		}
 
 		public override void ReadFromDeprecated( ref string[] nodeParams, Type oldType = null )
@@ -974,7 +1194,7 @@ namespace AmplifyShaderEditor
 					templateShaderName = GetCurrentParam( ref nodeParams );
 				}
 
-				TemplateMultiPass template = TemplatesManager.GetTemplate( templateGUID ) as TemplateMultiPass;
+				TemplateMultiPass template = m_containerGraph.ParentWindow.TemplatesManagerInstance.GetTemplate( templateGUID ) as TemplateMultiPass;
 				if( template != null )
 				{
 					m_templateGUID = templateGUID;
@@ -982,7 +1202,7 @@ namespace AmplifyShaderEditor
 				}
 				else
 				{
-					template = TemplatesManager.GetTemplateByName( templateShaderName ) as TemplateMultiPass;
+					template = m_containerGraph.ParentWindow.TemplatesManagerInstance.GetTemplateByName( templateShaderName ) as TemplateMultiPass;
 					if( template != null )
 					{
 						m_templateGUID = template.GUID;
@@ -993,6 +1213,10 @@ namespace AmplifyShaderEditor
 						m_masterNodeCategory = -1;
 					}
 				}
+
+				if( m_invalidNode )
+					return;
+
 				// only in here, after SetTemplate, we know if shader name is to be used as title or not
 				ShaderName = currShaderName;
 				if( UIUtils.CurrentShaderVersion() > 13902 )
@@ -1115,6 +1339,10 @@ namespace AmplifyShaderEditor
 			{
 				float heightEstimate = 0;
 				heightEstimate = 32 + Constants.INPUT_PORT_DELTA_Y;
+				if( m_templateMultiPass != null && !m_templateMultiPass.IsSinglePass )
+				{
+					heightEstimate += 22;
+				}
 				float internalPortSize = 0;
 				for( int i = 0; i < InputPorts.Count; i++ )
 				{
@@ -1131,6 +1359,7 @@ namespace AmplifyShaderEditor
 		public int PassIdx { get { return m_passIdx; } }
 		public TemplateMultiPass CurrentTemplate { get { return m_templateMultiPass; } }
 		public TemplateModulesHelper SubShaderModule { get { return m_subShaderModule; } }
+		public TemplateModulesHelper PassModule { get { return m_passModule; } }
 		public string PassName { get { return m_templateMultiPass.SubShaders[ m_subShaderIdx ].Passes[ m_passIdx ].PassNameContainer.Data; } }
 		public string OriginalPassName { get { return m_originalPassName; } }
 		public bool HasLinkPorts { get { return m_hasLinkPorts; } }

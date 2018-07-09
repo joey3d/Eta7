@@ -23,8 +23,8 @@ namespace AmplifyShaderEditor
 
 		public override string GenerateShaderForOutput( int outputId, ref MasterNodeDataCollector dataCollector, bool ignoreLocalvar )
 		{
-			if( m_outputPorts[ 0 ].IsLocalValue )
-				return m_outputPorts[ 0 ].LocalValue;
+			if( m_outputPorts[ 0 ].IsLocalValue( dataCollector.PortCategory ) )
+				return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 
 			InputPort vertexPort = GetInputPortByUniqueId( 2 );
 			InputPort lengthPort = GetInputPortByUniqueId( 0 );
@@ -60,7 +60,7 @@ namespace AmplifyShaderEditor
 
 				value = string.Format( CameraDepthFadeFormat, eyeDepth, offset, distance );
 				RegisterLocalVariable( 0, value, ref dataCollector, "cameraDepthFade" + OutputId );
-				return m_outputPorts[ 0 ].LocalValue;
+				return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 			}
 
 			if( dataCollector.PortCategory == MasterNodePortCategory.Vertex || dataCollector.PortCategory == MasterNodePortCategory.Tessellation )
@@ -78,7 +78,7 @@ namespace AmplifyShaderEditor
 				//dataCollector.AddVertexInstruction( "float cameraDepthFade" + UniqueId + " = (( -UnityObjectToViewPos( " + Constants.VertexShaderInputStr + ".vertex.xyz ).z -_ProjectionParams.y - " + offset + " ) / " + distance + ");", UniqueId );
 				value = string.Format( CameraDepthFadeFormat, "-UnityObjectToViewPos( " + vertexVarName + " ).z", offset, distance );
 				RegisterLocalVariable( 0, value, ref dataCollector, "cameraDepthFade" + OutputId );
-				return m_outputPorts[ 0 ].LocalValue;
+				return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 			}
 
 			dataCollector.AddToIncludes( UniqueId, Constants.UnityShaderVariables );
@@ -121,7 +121,7 @@ namespace AmplifyShaderEditor
 			RegisterLocalVariable( 0, value, ref dataCollector, "cameraDepthFade" + OutputId );
 			//dataCollector.AddToLocalVariables( UniqueId, "float cameraDepthFade" + UniqueId + " = (( " + Constants.InputVarStr + ".eyeDepth -_ProjectionParams.y - "+ offset + " ) / " + distance + ");" );
 
-			return m_outputPorts[ 0 ].LocalValue;
+			return m_outputPorts[ 0 ].LocalValue( dataCollector.PortCategory );
 		}
 	}
 }

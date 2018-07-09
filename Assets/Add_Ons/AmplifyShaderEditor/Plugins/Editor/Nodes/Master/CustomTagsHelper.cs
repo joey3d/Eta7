@@ -74,9 +74,9 @@ namespace AmplifyShaderEditor
 		public void Draw( ParentNode owner )
 		{
 			m_currentOwner = owner;
-			bool value = EditorVariablesManager.ExpandedCustomTags.Value;
+			bool value = owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedCustomTags;
 			NodeUtils.DrawPropertyGroup( ref value, CustomTagsStr, DrawMainBody, DrawButtons );
-			EditorVariablesManager.ExpandedCustomTags.Value = value;
+			owner.ContainerGraph.ParentWindow.InnerWindowVariables.ExpandedCustomTags = value;
 		}
 
 		void DrawButtons()
