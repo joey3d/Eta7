@@ -1,0 +1,11 @@
+fileFormatVersion: 2
+guid: 01008a136973ef94a84ada040820c984
+timeCreated: 1531125216
+licenseType: Free
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures:
+  - _Pond_Plant_A: {fileID: 2800000, guid: be0f01aa44a82b64e9f697c98084969a, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

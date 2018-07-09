@@ -6,10 +6,10 @@ Material:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
-  m_Name: Sky_Particles
-  m_Shader: {fileID: 4800000, guid: 737c95db45a2a1d4584c3d6511915d26, type: 3}
+  m_Name: Pond_Plant
+  m_Shader: {fileID: 4800000, guid: 01008a136973ef94a84ada040820c984, type: 3}
   m_ShaderKeywords: 
-  m_LightmapFlags: 0
+  m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
@@ -18,8 +18,8 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
-    - _A:
-        m_Texture: {fileID: 2800000, guid: ddb512d43a78722488076e017eb331ba, type: 3}
+    - _Pond_Plant_A:
+        m_Texture: {fileID: 2800000, guid: be0f01aa44a82b64e9f697c98084969a, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _texcoord:
@@ -28,7 +28,6 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - _Cutoff: 0.5
-    - _EdgeLength: 15
-    - _TessValue: 21
     - __dirty: 0
-    m_Colors: []
+    m_Colors:
+    - _D: {r: 0.8602941, g: 0, b: 0, a: 0}
